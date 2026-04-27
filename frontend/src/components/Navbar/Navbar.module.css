@@ -20,7 +20,7 @@
   gap: 2rem;
 }
 
-.logo {
+.brand {
   font-size: 1.2rem;
   font-weight: 800;
   color: var(--primary) !important;
@@ -31,18 +31,17 @@
   letter-spacing: -.02em;
   white-space: nowrap;
 }
-.logo:hover { color: var(--primary-dark) !important; text-decoration: none !important; }
-
-.logo svg { flex-shrink: 0; }
+.brand:hover { color: var(--primary-dark) !important; text-decoration: none !important; }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: .25rem;
+  gap: .5rem;
   flex: 1;
+  justify-content: flex-end;
 }
 
-.navLink {
+.nav a {
   padding: .4rem .85rem;
   border-radius: var(--radius);
   font-size: .875rem;
@@ -52,42 +51,13 @@
   transition: background var(--transition), color var(--transition);
   white-space: nowrap;
 }
-.navLink:hover {
+.nav a:hover {
   background: var(--bg);
   color: var(--text);
   text-decoration: none;
 }
-.navLinkActive {
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-.navLinkActive:hover {
-  background: var(--primary-bg);
-  color: var(--primary-dark);
-}
 
-.spacer { flex: 1; }
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-
-.userName {
-  font-size: .875rem;
-  font-weight: 600;
-  color: var(--text);
-  padding: .4rem .85rem;
-  border-radius: var(--radius);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-}
-
-.btnLogout {
+.logoutBtn {
   padding: .4rem .85rem;
   border-radius: var(--radius);
   background: transparent;
@@ -98,29 +68,13 @@
   cursor: pointer;
   transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
-.btnLogout:hover {
+.logoutBtn:hover {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--primary-bg);
 }
 
-.btnLogin {
-  padding: .4rem .85rem;
-  border-radius: var(--radius);
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: .875rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: border-color var(--transition), color var(--transition), background var(--transition);
-}
-.btnLogin:hover {
-  border-color: var(--text);
-  text-decoration: none;
-}
-
-.btnRegister {
+.registerBtn {
   padding: .4rem .85rem;
   border-radius: var(--radius);
   background: var(--primary);
@@ -131,7 +85,7 @@
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
   box-shadow: 0 1px 2px rgba(230,57,70,.3);
 }
-.btnRegister:hover {
+.registerBtn:hover {
   background: var(--primary-dark);
   text-decoration: none;
   transform: translateY(-1px);

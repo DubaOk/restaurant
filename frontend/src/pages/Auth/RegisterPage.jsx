@@ -28,7 +28,7 @@ const RegisterPage = () => {
 
     try {
       const { data } = await authApi.register(form);
-      login(data.token, data.user);
+      login(data.data.token, data.data.user);
       navigate('/restaurants', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Ошибка регистрации');

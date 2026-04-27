@@ -25,7 +25,7 @@ const LoginPage = () => {
 
     try {
       const { data } = await authApi.login(form);
-      login(data.token, data.user);
+      login(data.data.token, data.data.user);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Ошибка входа');

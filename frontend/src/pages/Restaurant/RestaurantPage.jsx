@@ -77,56 +77,125 @@ const RestaurantPage = () => {
     <>
       <Navbar />
       <main className={styles.page}>
-        <div className={styles.hero}>
-          {restaurant.imageUrl && (
-            <img src={restaurant.imageUrl} alt={restaurant.name} className={styles.heroImg} />
+        <Link to="/restaurants" className={styles.backLink}>
+          ← К списку ресторанов
+        </Link>
+
+        <section className={styles.heroSection}>
+          {restaurant.imageUrl ? (
+            <img src={restaurant.imageUrl} alt={restaurant.name} className={styles.heroImage} />
+          ) : (
+            <div className={styles.heroImagePlaceholder}>🍽</div>
           )}
-          <div className={styles.heroInfo}>
-            <h1>{restaurant.name}</h1>
-            <p className={styles.cuisine}>{restaurant.cuisine}</p>
-            <p className={styles.address}>{restaurant.address}</p>
-            <div className={styles.actions}>
+
+          <div className={styles.heroBody}>
+            <div className={styles.heroTop}>
+              <h1 className={styles.name}>{restaurant.name}</h1>
+              <div className={styles.badges}>
+                <span className={`${styles.badge} ${styles.badgeCuisine}`}>
+                  {restaurant.cuisine || 'Кухня не указана'}
+                </span>
+                <span className={`${styles.badge} ${styles.badgeRating}`}>
+                  ★ {restaurant.avgRating != null ? Number(restaurant.avgRating).toFixed(1) : 'Новый'}
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.meta}>
+              <span className={styles.metaItem}>📍 {restaurant.address || 'Адрес уточняется'}</span>
+              {restaurant.phone && <span className={styles.metaItem}>📞 {restaurant.phone}</span>}
+              {(restaurant.openTime || restaurant.closeTime) && (
+                <span className={styles.metaItem}>
+                  🕒 {restaurant.openTime || '--:--'} - {restaurant.closeTime || '--:--'}
+                </span>
+              )}
+            </div>
+
+            <p className={styles.description}>
+              {restaurant.description || 'Описание ресторана скоро будет добавлено.'}
+            </p>
+
+            <div className={styles.heroActions}>
               {user && (
                 <button
-                  className={`${styles.favBtn} ${isFavorite ? styles.favActive : ''}`}
+                  className={`${styles.btnOutline} ${isFavorite ? styles.btnFavActive : ''}`}
                   onClick={toggleFavorite}
                 >
                   {isFavorite ? '♥ В избранном' : '♡ В избранное'}
                 </button>
               )}
+              <a href="#reviews" className={styles.btnPrimary}>
+                К отзывам
+              </a>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className={styles.body}>
-          <section className={styles.section}>
-            <h2>О ресторане</h2>
-            <p>{restaurant.description}</p>
-          </section>
-
-          {promotions.length > 0 && (
-            <section className={styles.section}>
-              <h2>Акции</h2>
-              <PromotionList promotions={promotions} />
-            </section>
-          )}
-
-          {user?.role === 'CLIENT' && (
-            <section className={styles.section}>
-              <h2>Забронировать столик</h2>
-              <ReservationForm restaurantId={id} />
-            </section>
-          )}
-
-          <section className={styles.section}>
-            <h2>Отзывы ({reviews.length})</h2>
+        <div className={styles.content}>
+          <div className={styles.mainCol}>
             {user?.role === 'CLIENT' && (
-              <ReviewForm restaurantId={id} onCreated={handleReviewCreated} />
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>Бронирование</h2>
+                </div>
+                <div className={styles.sectionBody}>
+                  <ReservationForm restaurantId={id} />
+                </div>
+              </section>
             )}
-            <ReviewList reviews={reviews} currentUserId={user?.id} onDeleted={(rid) =>
-              setReviews((prev) => prev.filter((r) => r.id !== rid))
-            } />
-          </section>
+
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>О ресторане</h2>
+              </div>
+              <div className={styles.sectionBody}>
+                <p>{restaurant.description || 'Описание ресторана скоро будет добавлено.'}</p>
+              </div>
+            </section>
+
+            <section className={styles.section} id="reviews">
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Отзывы ({reviews.length})</h2>
+              </div>
+              <div className={styles.sectionBody}>
+                {user?.role === 'CLIENT' && (
+                  <ReviewForm restaurantId={id} onCreated={handleReviewCreated} />
+                )}
+                <ReviewList
+                  reviews={reviews}
+                  currentUserId={user?.id}
+                  onDeleted={(rid) => setReviews((prev) => prev.filter((r) => r.id !== rid))}
+                />
+              </div>
+            </section>
+          </div>
+
+          <aside className={styles.sideCol}>
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Информация</h2>
+              </div>
+              <div className={styles.sectionBody}>
+                <ul className={styles.infoList}>
+                  <li><strong>Город:</strong> Минск</li>
+                  <li><strong>Кухня:</strong> {restaurant.cuisine || 'Не указана'}</li>
+                  <li><strong>Адрес:</strong> {restaurant.address || 'Не указан'}</li>
+                  {restaurant.phone && <li><strong>Телефон:</strong> {restaurant.phone}</li>}
+                </ul>
+              </div>
+            </section>
+
+            {promotions.length > 0 && (
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>Акции</h2>
+                </div>
+                <div className={styles.sectionBody}>
+                  <PromotionList promotions={promotions} />
+                </div>
+              </section>
+            )}
+          </aside>
         </div>
       </main>
     </>

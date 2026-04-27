@@ -103,6 +103,16 @@
   margin-top: .5rem;
 }
 
+.error {
+  max-width: var(--max-width);
+  margin: 1.25rem auto;
+  padding: .875rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(220, 38, 38, .2);
+  background: var(--error-bg);
+  color: var(--error);
+}
+
 .heroActions {
   display: flex;
   gap: .75rem;
@@ -184,6 +194,19 @@
 }
 
 .sectionBody { padding: 1.25rem 1.5rem; }
+
+.infoList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+
+.infoList strong {
+  color: var(--text);
+}
 
 .menuCategory { margin-bottom: 1.5rem; }
 .menuCategory:last-child { margin-bottom: 0; }
@@ -286,4 +309,6 @@
 
 @media (max-width: 900px) {
   .content { grid-template-columns: 1fr; }
+  .heroBody { padding: 1.25rem; }
+  .name { font-size: 1.5rem; }
 }

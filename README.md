@@ -66,14 +66,21 @@ docker compose exec backend npm run prisma:seed
 
 Приложение доступно по адресу: **http://localhost:8080**
 
-## Запуск для разработки (без Docker)
+## Запуск для разработки (dev mode)
+
+В dev-режиме запускаем только PostgreSQL в Docker, а backend/frontend — локально.
+
+### 1) Поднять только БД
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
 
 ### Backend
 
 ```bash
 cd backend
 npm install
-# Запустить PostgreSQL локально, настроить .env
 npx prisma migrate dev --name init
 npm run prisma:seed
 npm run dev
@@ -89,6 +96,12 @@ npm run dev
 
 Frontend: http://localhost:3000  
 Backend API: http://localhost:5000/api
+
+### Остановить БД
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
 
 ## Тестовые аккаунты (после seed)
 
