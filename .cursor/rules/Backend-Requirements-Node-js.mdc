@@ -1,0 +1,15 @@
+---
+description: 
+alwaysApply: true
+---
+
+Stack:
+Node.js
+Express
+PostgreSQL
+ORM: Prisma
+Implement REST API with proper HTTP methods and status codes.
+Use JWT for authentication.
+Implement role-based access control (RBAC) via middleware.
+Validate all input data.
+Handle errors globally (try/catch + middleware).

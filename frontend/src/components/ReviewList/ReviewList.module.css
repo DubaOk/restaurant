@@ -1,0 +1,91 @@
+.list { display: flex; flex-direction: column; gap: .75rem; }
+
+.card {
+  padding: 1.125rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--transition);
+}
+.card:hover { box-shadow: var(--shadow); }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .625rem;
+}
+
+.authorInfo { display: flex; align-items: center; gap: .625rem; }
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: .9375rem;
+  flex-shrink: 0;
+}
+
+.authorName { font-size: .9375rem; font-weight: 600; color: var(--text); }
+.date { font-size: .75rem; color: var(--text-muted); margin-top: .1rem; }
+
+.stars {
+  display: flex;
+  gap: .1rem;
+}
+.star     { color: var(--border); font-size: 1rem; }
+.starFull { color: var(--gold); }
+
+.rating {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+.ratingVal { font-size: .875rem; font-weight: 700; color: var(--text); }
+
+.text {
+  font-size: .9rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.actions { display: flex; gap: .5rem; margin-top: .75rem; }
+
+.btnEdit {
+  padding: .3rem .75rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .8125rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnEdit:hover { border-color: var(--text); color: var(--text); }
+
+.btnDelete {
+  padding: .3rem .75rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .8125rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btnDelete:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: .9rem;
+}

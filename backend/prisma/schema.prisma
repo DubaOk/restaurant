@@ -1,0 +1,183 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  OWNER
+  ADMIN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum BonusTransactionType {
+  EARN
+  SPEND
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CLIENT)
+  phone     String?
+  isBlocked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  restaurants      Restaurant[]
+  reservations     Reservation[]
+  reviews          Review[]
+  favorites        Favorite[]
+  bonusTransactions BonusTransaction[]
+
+  @@map("users")
+}
+
+model Restaurant {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  address     String
+  cuisine     String
+  phone       String?
+  openTime    String?
+  closeTime   String?
+  imageUrl    String?
+  latitude    Float?
+  longitude   Float?
+  avgRating   Float?
+  ownerId     Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tables       Table[]
+  menuItems    MenuItem[]
+  reservations Reservation[]
+  reviews      Review[]
+  favorites    Favorite[]
+  promotions   Promotion[]
+
+  @@map("restaurants")
+}
+
+model Table {
+  id           Int    @id @default(autoincrement())
+  restaurantId Int
+  number       Int
+  capacity     Int
+  isAvailable  Boolean @default(true)
+
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@unique([restaurantId, number])
+  @@map("tables")
+}
+
+model MenuItem {
+  id           Int     @id @default(autoincrement())
+  restaurantId Int
+  name         String
+  description  String?
+  price        Float
+  category     String
+  imageUrl     String?
+  isAvailable  Boolean @default(true)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("menu_items")
+}
+
+model Reservation {
+  id           Int               @id @default(autoincrement())
+  userId       Int
+  restaurantId Int
+  tableId      Int
+  date         DateTime
+  guestsCount  Int
+  status       ReservationStatus @default(PENDING)
+  comment      String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table        Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("reservations")
+}
+
+model Review {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  restaurantId Int
+  rating       Int
+  comment      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@map("reviews")
+}
+
+model Favorite {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  restaurantId Int
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@map("favorites")
+}
+
+model BonusTransaction {
+  id          Int                  @id @default(autoincrement())
+  userId      Int
+  amount      Int
+  type        BonusTransactionType
+  description String
+  createdAt   DateTime             @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bonus_transactions")
+}
+
+model Promotion {
+  id           Int       @id @default(autoincrement())
+  restaurantId Int
+  title        String
+  description  String
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("promotions")
+}

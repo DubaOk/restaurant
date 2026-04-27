@@ -1,0 +1,11 @@
+---
+description: 
+alwaysApply: true
+---
+
+Generate only complete, production-ready code.
+Do not use placeholders, TODOs, or pseudo-code.
+Do not mix layers:
+no SQL in controllers
+no business logic in routes
+Each module must be self-contained and functional.

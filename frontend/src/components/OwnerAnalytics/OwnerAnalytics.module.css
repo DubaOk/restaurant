@@ -1,0 +1,57 @@
+.container { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.statCard:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+
+.statIcon {
+  font-size: 1.5rem;
+  margin-bottom: .625rem;
+}
+
+.statValue {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.03em;
+  line-height: 1;
+  margin-bottom: .25rem;
+}
+.statValue.primary { color: var(--primary); }
+.statValue.success { color: var(--success); }
+.statValue.warning { color: var(--warning); }
+
+.statLabel {
+  font-size: .8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  gap: .75rem;
+  color: var(--text-muted);
+}
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -1,0 +1,14 @@
+---
+description: 
+alwaysApply: true
+---
+
+Provide:
+Dockerfile (backend)
+Dockerfile (frontend)
+docker-compose.yml
+Services:
+backend
+frontend
+postgres
+nginx (reverse proxy)

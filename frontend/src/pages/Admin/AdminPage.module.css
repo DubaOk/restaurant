@@ -1,0 +1,155 @@
+.page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.header { margin-bottom: 2rem; }
+.title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -.03em;
+  margin-bottom: .25rem;
+}
+.subtitle { font-size: .9375rem; color: var(--text-muted); }
+
+.tabs {
+  display: flex;
+  gap: .25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: .3rem;
+  margin-bottom: 1.5rem;
+  width: fit-content;
+}
+.tab {
+  padding: .45rem 1.25rem;
+  border-radius: var(--radius);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.tabActive { background: var(--primary); color: #fff; box-shadow: 0 1px 3px rgba(230,57,70,.3); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.table thead { background: var(--surface2); }
+.table th {
+  padding: .875rem 1.25rem;
+  text-align: left;
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 1rem 1.25rem;
+  font-size: .9rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background: var(--surface2); }
+
+.roleTag {
+  display: inline-block;
+  padding: .2rem .6rem;
+  border-radius: 99px;
+  font-size: .75rem;
+  font-weight: 600;
+}
+.roleAdmin  { background: var(--primary-bg); color: var(--primary); }
+.roleOwner  { background: var(--warning-bg); color: var(--warning); }
+.roleClient { background: var(--success-bg); color: var(--success); }
+
+.statusTag {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .8125rem;
+  font-weight: 500;
+}
+.statusActive  { color: var(--success); }
+.statusBlocked { color: var(--error); }
+
+.btnBlock {
+  padding: .35rem .85rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-muted);
+}
+.btnBlock:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+
+.btnUnblock {
+  padding: .35rem .85rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-muted);
+}
+.btnUnblock:hover { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+
+.btnDelete {
+  padding: .35rem .85rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-muted);
+}
+.btnDelete:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+
+.reviewText {
+  font-size: .875rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  gap: .75rem;
+  color: var(--text-muted);
+}
+.spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
