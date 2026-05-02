@@ -1,5 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: "nbrb";
+  src: url("/fonts/nbrb.woff2") format("woff2"),
+       url("/fonts/nbrb.woff") format("woff"),
+       url("/fonts/nbrb.ttf") format("truetype");
+  unicode-range: U+E901, U+42, U+59, U+4E;
+}
+
+.nbrb-icon {
+  font-family: "nbrb" !important;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: normal;
+  font-feature-settings: "liga";
+  -webkit-font-variant-ligatures: discretionary-ligatures;
+  font-variant-ligatures: discretionary-ligatures;
+}
+
 *,
 *::before,
 *::after {
@@ -52,15 +75,15 @@
 
   /* Layout */
   --max-width: 1200px;
-  --nav-height: 64px;
+  --nav-height: 56px;
 }
 
 html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  background: #0e1116;
+  color: #e8eaed;
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -84,7 +107,8 @@ input, textarea, select { font-family: inherit; font-size: 1rem; }
   height: 480px;
   border-radius: var(--radius-lg);
   z-index: 0;
-  box-shadow: var(--shadow);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Scrollbar */

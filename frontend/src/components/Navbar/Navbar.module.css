@@ -2,92 +2,134 @@
   position: sticky;
   top: 0;
   z-index: 1000;
-  height: var(--nav-height);
-  background: rgba(255, 255, 255, 0.92);
+  height: 56px;
+  background: rgba(14, 17, 22, 0.9);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .inner {
   max-width: var(--max-width);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 1.2rem;
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 2rem;
+  justify-content: space-between;
+  gap: .9rem;
 }
 
 .brand {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--primary) !important;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 400;
+  color: #f2d09a !important;
   text-decoration: none !important;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  letter-spacing: -.02em;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  transition: transform .25s ease, text-shadow .25s ease, opacity .25s ease;
+}
+.brand:hover {
+  opacity: .95;
+  text-decoration: none !important;
+  transform: scale(1.015);
+  text-shadow: 0 0 14px rgba(242, 208, 154, .3);
+}
+
+.nav a {
+  position: relative;
+  padding: .28rem .36rem;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(233, 233, 233, 0.72);
+  text-decoration: none;
+  transition: color var(--transition);
   white-space: nowrap;
 }
-.brand:hover { color: var(--primary-dark) !important; text-decoration: none !important; }
+
+.nav a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 1px;
+  border-radius: 999px;
+  background: #f2d09a;
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  transition: transform .2s ease;
+}
+
+.nav a:hover {
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav a:hover::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.rightCol {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+}
 
 .nav {
   display: flex;
   align-items: center;
-  gap: .5rem;
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.nav a {
-  padding: .4rem .85rem;
-  border-radius: var(--radius);
-  font-size: .875rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: background var(--transition), color var(--transition);
-  white-space: nowrap;
-}
-.nav a:hover {
-  background: var(--bg);
-  color: var(--text);
-  text-decoration: none;
+  gap: .58rem;
 }
 
 .logoutBtn {
-  padding: .4rem .85rem;
-  border-radius: var(--radius);
+  padding: .28rem .7rem;
+  border-radius: 999px;
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: .875rem;
-  font-weight: 500;
+  border: 1px solid rgba(242, 208, 154, 0.45);
+  color: rgba(242, 208, 154, 0.88);
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-decoration: none;
   cursor: pointer;
-  transition: border-color var(--transition), color var(--transition), background var(--transition);
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
 }
 .logoutBtn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: var(--primary-bg);
+  color: #fff;
+  border-color: rgba(242, 208, 154, 0.8);
+  background: rgba(184, 154, 99, 0.18);
+  text-decoration: none;
 }
 
-.registerBtn {
-  padding: .4rem .85rem;
-  border-radius: var(--radius);
-  background: var(--primary);
-  color: #fff;
-  font-size: .875rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
-  box-shadow: 0 1px 2px rgba(230,57,70,.3);
+@media (max-width: 1200px) {
+  .inner { padding: 0 .9rem; }
 }
-.registerBtn:hover {
-  background: var(--primary-dark);
-  text-decoration: none;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(230,57,70,.35);
+
+@media (max-width: 860px) {
+  .navbar { height: 52px; }
+  .inner {
+    padding: 0 .7rem;
+    gap: .6rem;
+  }
+  .brand {
+    font-size: .9rem;
+  }
+  .nav {
+    gap: .3rem;
+  }
+  .nav a {
+    font-size: 12px;
+    letter-spacing: .08em;
+    padding: .2rem .2rem;
+  }
+  .logoutBtn {
+    font-size: 11px;
+    padding: .24rem .52rem;
+  }
 }

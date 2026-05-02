@@ -1,5 +1,7 @@
 const restaurantsService = require('./restaurants.service');
 
+const mapFilesToUrls = (files = []) => files.map((file) => `/uploads/restaurants/${file.filename}`);
+
 const getAll = async (req, res, next) => {
   try {
     const restaurants = await restaurantsService.getAll(req.query);
@@ -20,7 +22,8 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const restaurant = await restaurantsService.create(req.user.id, req.body);
+    const uploadedImageUrls = mapFilesToUrls(req.files);
+    const restaurant = await restaurantsService.create(req.user.id, req.body, uploadedImageUrls);
     res.status(201).json({ success: true, data: restaurant });
   } catch (err) {
     next(err);
@@ -29,10 +32,12 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
+    const uploadedImageUrls = mapFilesToUrls(req.files);
     const restaurant = await restaurantsService.update(
       parseInt(req.params.id),
       req.user.id,
-      req.body
+      req.body,
+      uploadedImageUrls
     );
     res.json({ success: true, data: restaurant });
   } catch (err) {
@@ -42,7 +47,7 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
-    await restaurantsService.remove(parseInt(req.params.id), req.user.id);
+    await restaurantsService.remove(parseInt(req.params.id), req.user.id, req.user.role);
     res.json({ success: true, message: 'Ресторан удалён' });
   } catch (err) {
     next(err);

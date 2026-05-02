@@ -15,40 +15,30 @@ const Navbar = () => {
     <header className={styles.navbar}>
       <div className={styles.inner}>
         <Link to="/restaurants" className={styles.brand}>
-          🍽 Рестораны Минска
+          Рестораны Минска
         </Link>
 
-        <nav className={styles.nav}>
-          <Link to="/restaurants">Рестораны</Link>
-
-          {user?.role === 'CLIENT' && (
-            <>
-              <Link to="/reservations">Бронирования</Link>
-              <Link to="/profile">Профиль</Link>
-            </>
-          )}
-
-          {user?.role === 'OWNER' && (
-            <Link to="/owner">Мой ресторан</Link>
-          )}
-
-          {user?.role === 'ADMIN' && (
-            <Link to="/admin">Администрирование</Link>
-          )}
+        <div className={styles.rightCol}>
+          <nav className={styles.nav}>
+            <Link to="/restaurants">Рестораны</Link>
+            {user?.role === 'CLIENT' && <Link to="/reservations">Бронирования</Link>}
+            {user?.role === 'OWNER' && <Link to="/owner">Мои рестораны</Link>}
+            {user?.role === 'ADMIN' && <Link to="/admin">Админ</Link>}
+            <Link to="/profile">Профиль</Link>
+          </nav>
 
           {user ? (
-            <button className={styles.logoutBtn} onClick={handleLogout}>
-              Выйти
-            </button>
+            <>
+              <button className={styles.logoutBtn} onClick={handleLogout}>
+                Выйти
+              </button>
+            </>
           ) : (
             <>
-              <Link to="/login">Войти</Link>
-              <Link to="/register" className={styles.registerBtn}>
-                Регистрация
-              </Link>
+              <Link to="/login" className={styles.logoutBtn}>Войти</Link>
             </>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   );

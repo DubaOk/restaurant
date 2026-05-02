@@ -11,6 +11,7 @@ router.get(
   controller.getRestaurantReservations
 );
 router.post('/', authenticate, authorize('CLIENT'), controller.create);
+router.patch('/:id', authenticate, authorize('CLIENT'), controller.update);
 router.patch('/:id/cancel', authenticate, authorize('CLIENT', 'OWNER'), controller.cancel);
 router.patch('/:id/confirm', authenticate, authorize('OWNER'), controller.confirm);
 

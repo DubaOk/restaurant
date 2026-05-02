@@ -6,4 +6,5 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   nodeEnv: process.env.NODE_ENV || 'development',
   databaseUrl: process.env.DATABASE_URL,
+  yandexMapsApiKey: process.env.YANDEX_MAPS_API_KEY || '',
 };

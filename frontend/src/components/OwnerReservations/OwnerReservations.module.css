@@ -1,96 +1,126 @@
-.container {}
-
-.list { display: flex; flex-direction: column; gap: .75rem; }
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition);
-}
-.card:hover { box-shadow: var(--shadow); }
-
-.cardBody {
-  padding: 1.125rem 1.5rem;
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 25, 34, 0.72);
+  backdrop-filter: blur(10px);
 }
 
-.info {}
-.clientName { font-weight: 700; color: var(--text); margin-bottom: .375rem; }
-.meta {
+.info {
   display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  font-size: .8125rem;
-  color: var(--text-muted);
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
 }
-.meta span { display: flex; align-items: center; gap: .25rem; }
 
-.right { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; }
-
-.statusBadge {
-  padding: .25rem .65rem;
-  border-radius: 99px;
-  font-size: .75rem;
-  font-weight: 700;
+.guest {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #f0f2f6;
 }
-.statusPending   { background: var(--warning-bg); color: var(--warning); }
-.statusConfirmed { background: var(--success-bg); color: var(--success); }
-.statusCancelled { background: #f3f4f6; color: var(--text-muted); }
 
-.actions { display: flex; gap: .5rem; }
+.date,
+.guests {
+  font-size: 0.82rem;
+  color: #9aa3b2;
+}
 
-.btnConfirm {
-  padding: .3rem .75rem;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid rgba(5,150,105,.3);
-  background: var(--success-bg);
-  color: var(--success);
-  font-size: .8125rem;
+.comment {
+  font-size: 0.84rem;
+  color: #b8c0cc;
+  font-style: italic;
+  margin-top: 0.2rem;
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.badge {
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.pending {
+  background: rgba(217, 119, 6, 0.2);
+  color: #fbbf24;
+}
+
+.confirmed {
+  background: rgba(34, 88, 58, 0.35);
+  color: #7dd3a8;
+}
+
+.cancelled {
+  background: rgba(255, 255, 255, 0.08);
+  color: #9aa3b2;
+}
+
+.completed {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+.confirmBtn {
+  padding: 0.32rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(72, 170, 120, 0.45);
+  background: rgba(34, 88, 58, 0.25);
+  color: #7dd3a8;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--transition);
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
-.btnConfirm:hover { background: var(--success); color: #fff; border-color: var(--success); }
 
-.btnCancel {
-  padding: .3rem .75rem;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: .8125rem;
-  cursor: pointer;
-  transition: all var(--transition);
+.confirmBtn:hover {
+  background: rgba(72, 170, 120, 0.45);
 }
-.btnCancel:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+
+.cancelBtn {
+  padding: 0.32rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  border-color: rgba(240, 168, 168, 0.5);
+  color: #f0a8a8;
+}
 
 .empty {
   text-align: center;
   padding: 2.5rem;
-  color: var(--text-muted);
-  font-size: .9rem;
+  color: #9aa3b2;
+  font-size: 0.92rem;
 }
 
 .loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  gap: .75rem;
-  color: var(--text-muted);
+  text-align: center;
+  padding: 2rem;
+  color: #9aa3b2;
 }
-.spinner {
-  width: 20px; height: 20px;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }

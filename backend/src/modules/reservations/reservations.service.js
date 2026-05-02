@@ -53,6 +53,49 @@ const create = async (userId, { restaurantId, tableId, date, guestsCount, commen
   });
 };
 
+const update = async (id, userId, { date, guestsCount, tableId }) => {
+  const reservation = await prisma.reservation.findUnique({ where: { id } });
+  if (!reservation) throw ApiError.notFound('Бронирование не найдено');
+  if (reservation.userId !== userId) throw ApiError.forbidden('Нет прав');
+  if (reservation.status !== 'PENDING') throw ApiError.badRequest('Изменять можно только ожидающие бронирования');
+
+  const checkTableId = tableId || reservation.tableId;
+  const checkDate = date ? new Date(date) : reservation.date;
+
+  if (tableId && tableId !== reservation.tableId) {
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, restaurantId: reservation.restaurantId },
+    });
+    if (!table) throw ApiError.notFound('Столик не найден');
+    const effectiveGuests = guestsCount || reservation.guestsCount;
+    if (table.capacity < effectiveGuests)
+      throw ApiError.badRequest(`Столик рассчитан максимум на ${table.capacity} гостей`);
+  }
+
+  const conflict = await prisma.reservation.findFirst({
+    where: {
+      tableId: checkTableId,
+      id: { not: id },
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      date: {
+        gte: new Date(checkDate.getTime() - 2 * 60 * 60 * 1000),
+        lte: new Date(checkDate.getTime() + 2 * 60 * 60 * 1000),
+      },
+    },
+  });
+  if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
+
+  return prisma.reservation.update({
+    where: { id },
+    data: {
+      ...(date && { date: new Date(date) }),
+      ...(guestsCount && { guestsCount }),
+      ...(tableId && { tableId }),
+    },
+    include: RESERVATION_INCLUDE,
+  });
+};
+
 const cancel = async (id, userId, role) => {
   const reservation = await prisma.reservation.findUnique({ where: { id } });
   if (!reservation) throw ApiError.notFound('Бронирование не найдено');
@@ -101,4 +144,4 @@ const confirm = async (id, ownerId) => {
   return updated;
 };
 
-module.exports = { getMyReservations, getRestaurantReservations, create, cancel, confirm };
+module.exports = { getMyReservations, getRestaurantReservations, create, update, cancel, confirm };

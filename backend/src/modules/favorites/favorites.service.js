@@ -7,12 +7,30 @@ const getMyFavorites = async (userId) =>
     include: {
       restaurant: {
         select: {
-          id: true, name: true, cuisine: true, address: true, avgRating: true, imageUrl: true,
+          id: true,
+          name: true,
+          cuisine: true,
+          address: true,
+          avgRating: true,
+          imageUrl: true,
+          images: {
+            orderBy: { sortOrder: 'asc' },
+            take: 1,
+            select: { url: true },
+          },
         },
       },
     },
     orderBy: { createdAt: 'desc' },
-  });
+  }).then((favorites) =>
+    favorites.map((item) => ({
+      ...item,
+      restaurant: {
+        ...item.restaurant,
+        imageUrl: item.restaurant.images[0]?.url || item.restaurant.imageUrl || null,
+      },
+    }))
+  );
 
 const add = async (userId, restaurantId) => {
   const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });

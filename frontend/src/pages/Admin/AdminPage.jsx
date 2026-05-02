@@ -36,6 +36,7 @@ const AdminPage = () => {
   return (
     <>
       <Navbar />
+      <div className={styles.shell}>
       <main className={styles.page}>
         <h1>Панель администратора</h1>
 
@@ -83,6 +84,7 @@ const AdminPage = () => {
           </div>
         )}
       </main>
+      </div>
     </>
   );
 };

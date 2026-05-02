@@ -1,91 +1,189 @@
-.list { display: flex; flex-direction: column; gap: .75rem; }
-
-.card {
-  padding: 1.125rem 1.25rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  transition: box-shadow var(--transition);
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
-.card:hover { box-shadow: var(--shadow); }
+
+.item {
+  padding: 1.125rem 1.25rem;
+  background: rgba(14, 18, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.item:hover {
+  border-color: rgba(242, 208, 154, 0.15);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+}
 
 .header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: .75rem;
-  margin-bottom: .625rem;
-}
-
-.authorInfo { display: flex; align-items: center; gap: .625rem; }
-
-.avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: .9375rem;
-  flex-shrink: 0;
+  gap: 0.5rem 0.85rem;
+  margin-bottom: 0.625rem;
 }
 
-.authorName { font-size: .9375rem; font-weight: 600; color: var(--text); }
-.date { font-size: .75rem; color: var(--text-muted); margin-top: .1rem; }
+.author {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #f2f4f7;
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 .stars {
-  display: flex;
-  gap: .1rem;
+  display: inline-flex;
+  gap: 0.08rem;
 }
-.star     { color: var(--border); font-size: 1rem; }
-.starFull { color: var(--gold); }
 
-.rating {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  flex-shrink: 0;
+.star {
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 1rem;
 }
-.ratingVal { font-size: .875rem; font-weight: 700; color: var(--text); }
 
-.text {
-  font-size: .9rem;
-  color: var(--text-muted);
+.starFilled {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.date {
+  font-size: 0.75rem;
+  color: #9aa3b2;
+  margin-left: auto;
+}
+
+.comment {
+  font-size: 0.9rem;
+  color: #b8c0cc;
   line-height: 1.65;
+  margin: 0;
 }
 
-.actions { display: flex; gap: .5rem; margin-top: .75rem; }
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
 
-.btnEdit {
-  padding: .3rem .75rem;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
+.editBtn,
+.deleteBtn {
+  padding: 0.32rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
-  color: var(--text-muted);
-  font-size: .8125rem;
+  color: #9aa3b2;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all var(--transition);
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
 }
-.btnEdit:hover { border-color: var(--text); color: var(--text); }
 
-.btnDelete {
-  padding: .3rem .75rem;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: .8125rem;
-  cursor: pointer;
-  transition: all var(--transition);
+.editBtn:hover {
+  border-color: rgba(242, 208, 154, 0.45);
+  color: #f2d09a;
+  background: rgba(242, 208, 154, 0.06);
 }
-.btnDelete:hover { border-color: var(--error); color: var(--error); background: var(--error-bg); }
+
+.deleteBtn:hover {
+  border-color: rgba(240, 168, 168, 0.45);
+  color: #f0a8a8;
+  background: rgba(87, 22, 22, 0.2);
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.editStars {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.editStars .star,
+.editStars .starFilled {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.editTextarea {
+  width: 100%;
+  background: rgba(14, 18, 24, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  color: #e8eaed;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.editTextarea:focus {
+  outline: none;
+  border-color: rgba(242, 208, 154, 0.4);
+}
+
+.editActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.saveBtn {
+  padding: 0.38rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 208, 154, 0.5);
+  background: rgba(242, 208, 154, 0.1);
+  color: #f2d09a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: rgba(242, 208, 154, 0.18);
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelEditBtn {
+  padding: 0.38rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
 
 .empty {
   padding: 2rem;
   text-align: center;
-  color: var(--text-muted);
-  font-size: .9rem;
+  margin: 0;
+  color: #9aa3b2;
+  font-size: 0.9rem;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(14, 18, 24, 0.45);
 }

@@ -1,8 +1,13 @@
+const { validationResult } = require('express-validator');
+const ApiError = require('../../utils/apiError');
 const tablesService = require('./tables.service');
 
 const getByRestaurant = async (req, res, next) => {
   try {
-    const tables = await tablesService.getByRestaurant(parseInt(req.params.restaurantId));
+    const tables = await tablesService.getByRestaurant(
+      parseInt(req.params.restaurantId, 10),
+      req.query.at || null
+    );
     res.json({ success: true, data: tables });
   } catch (err) {
     next(err);
@@ -11,10 +16,10 @@ const getByRestaurant = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const table = await tablesService.create(req.user.id, {
-      ...req.body,
-      restaurantId: parseInt(req.body.restaurantId),
-    });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return next(ApiError.badRequest('Ошибка валидации', errors.array()));
+
+    const table = await tablesService.create(req.user.id, req.body);
     res.status(201).json({ success: true, data: table });
   } catch (err) {
     next(err);
@@ -23,7 +28,10 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const table = await tablesService.update(parseInt(req.params.id), req.user.id, req.body);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return next(ApiError.badRequest('Ошибка валидации', errors.array()));
+
+    const table = await tablesService.update(parseInt(req.params.id, 10), req.user.id, req.body);
     res.json({ success: true, data: table });
   } catch (err) {
     next(err);

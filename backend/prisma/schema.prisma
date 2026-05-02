@@ -69,12 +69,26 @@ model Restaurant {
   owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tables       Table[]
   menuItems    MenuItem[]
+  images       RestaurantImage[]
   reservations Reservation[]
   reviews      Review[]
   favorites    Favorite[]
   promotions   Promotion[]
 
   @@map("restaurants")
+}
+
+model RestaurantImage {
+  id           Int      @id @default(autoincrement())
+  restaurantId Int
+  url          String
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("restaurant_images")
 }
 
 model Table {
