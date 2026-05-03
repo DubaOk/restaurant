@@ -204,16 +204,10 @@
 }
 
 .mapBlock {
-  border: 1px solid rgba(242, 208, 154, 0.2);
-  border-radius: 14px;
-  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.55rem;
   background: rgba(12, 15, 20, 0.9);
-  overflow: hidden;
-}
-
-.mapBlock :global(.ymaps-2-1-79-map),
-.mapBlock :global([class*='ymaps-']) {
-  border-radius: 10px !important;
 }
 
 .helper {

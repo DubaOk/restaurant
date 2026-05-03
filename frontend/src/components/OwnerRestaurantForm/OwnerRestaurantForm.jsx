@@ -5,6 +5,20 @@ import { BELARUS_CITY_NAMES, getCityMapCenter } from '../../constants/belarusCit
 import styles from './OwnerRestaurantForm.module.css';
 
 const YANDEX_MAPS_API_KEY = import.meta.env.VITE_YANDEX_MAPS_API_KEY || '';
+const MAP_PIN_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f2d09a"/><stop offset="1" stop-color="#8a6230"/></linearGradient>
+      <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.45"/></filter>
+    </defs>
+    <path filter="url(#s)" fill="url(#g)" stroke="#1e1810" stroke-width="1.2"
+      d="M22 3C13.8 3 7 9.4 7 17.2 7 29 22 49 22 49s15-20 15-31.8C37 9.4 30.2 3 22 3z"/>
+    <circle cx="22" cy="17.5" r="5.2" fill="#141210" stroke="rgba(242,208,154,0.5)" stroke-width="0.9"/>
+    <path fill="none" stroke="rgba(242,208,154,0.85)" stroke-width="1.2" stroke-linecap="round"
+      d="M22 11v4M19 13h6"/>
+  </svg>`
+);
+const MAP_PIN_HREF = `data:image/svg+xml;charset=UTF-8,${MAP_PIN_SVG}`;
 
 const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   const isEdit = Boolean(restaurant);
@@ -31,21 +45,20 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestTimer = useRef(null);
-  const ymapsRef = useRef(null);
 
   const fileInputRef = useRef(null);
 
-  // Wait for ymaps.ready() — ensures suggest/geocode modules are available
-  useEffect(() => {
-    const tryInit = () => {
-      if (window.ymaps?.ready) {
-        window.ymaps.ready(() => { ymapsRef.current = window.ymaps; });
-      } else {
-        setTimeout(tryInit, 100);
-      }
+  const geocodeAddress = async (address, city = form.city) => {
+    if (typeof window.ymaps?.geocode !== 'function') return null;
+    const q = `Беларусь, ${city}, ${address}`;
+    const res = await window.ymaps.geocode(q, { results: 1 });
+    const obj = res.geoObjects.get(0);
+    if (!obj) return null;
+    return {
+      coords: obj.geometry.getCoordinates(),
+      address: obj.getAddressLine(),
     };
-    tryInit();
-  }, []);
+  };
 
   useEffect(() => {
     if (restaurant) {
@@ -90,7 +103,6 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   // ── address suggest ───────────────────────────────────────
   const handleAddressInput = (e) => {
     const value = e.target.value;
-    const citySnapshot = form.city;
     setForm((prev) => ({ ...prev, address: value }));
     clearTimeout(suggestTimer.current);
     if (!value.trim()) {
@@ -98,54 +110,78 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       setShowSuggestions(false);
       return;
     }
-    suggestTimer.current = setTimeout(() => {
-      const ym = ymapsRef.current;
-      if (!ym?.suggest) return;
-      ym.suggest(`Беларусь, ${citySnapshot}, ${value}`, {
-        results: 7,
-        boundedBy: [[51.2, 23.2], [56.2, 32.8]],
-        strictBounds: false,
-      }).then((results) => {
+    suggestTimer.current = setTimeout(async () => {
+      if (typeof window.ymaps?.suggest !== 'function' && typeof window.ymaps?.geocode !== 'function') return;
+      try {
+        let results = [];
+        if (typeof window.ymaps?.suggest === 'function') {
+          results = await window.ymaps.suggest(`Беларусь, ${form.city}, ${value}`, { results: 7 });
+        }
+
+        // Fallback for cases where suggest is unavailable/empty
+        if ((!results || results.length === 0) && typeof window.ymaps?.geocode === 'function') {
+          const geo = await window.ymaps.geocode(`Беларусь, ${form.city}, ${value}`, { results: 6 });
+          results = geo.geoObjects.toArray().map((obj) => ({
+            value: obj.getAddressLine(),
+            displayName: obj.getAddressLine(),
+          }));
+        }
+
         setSuggestions(results || []);
         setShowSuggestions((results || []).length > 0);
-      }).catch(() => setSuggestions([]));
+      } catch {
+        setSuggestions([]);
+      }
     }, 350);
   };
 
-  const handleSuggestionPick = (suggestion) => {
+  const handleAddressBlur = async () => {
+    setTimeout(() => setShowSuggestions(false), 150);
+    const value = form.address.trim();
+    if (!value) return;
+    try {
+      const data = await geocodeAddress(value, form.city);
+      if (data?.coords) {
+        setManualPoint(data.coords);
+        setManualPointEnabled(true);
+      }
+    } catch {
+      /* silent */
+    }
+  };
+
+  const handleSuggestionPick = async (suggestion) => {
     setShowSuggestions(false);
     setSuggestions([]);
     const displayValue = suggestion.displayName || suggestion.value || '';
     setForm((prev) => ({ ...prev, address: displayValue }));
-    const ym = ymapsRef.current;
-    if (!ym?.geocode) return;
-    ym.geocode(suggestion.value, { results: 1 }).then((geoResult) => {
-      const obj = geoResult.geoObjects.get(0);
-      if (obj) {
-        setManualPoint(obj.geometry.getCoordinates());
+    try {
+      const data = await geocodeAddress(suggestion.value, form.city);
+      if (data?.coords) {
+        setManualPoint(data.coords);
         setManualPointEnabled(true);
       }
-    }).catch(() => {});
+    } catch { /* silent */ }
   };
 
   // ── map click → reverse geocode ───────────────────────────
-  const handleMapClick = (event) => {
+  const handleMapClick = async (event) => {
     const coords = event.get('coords');
     setManualPoint(coords);
     setManualPointEnabled(true);
-    const ym = ymapsRef.current;
-    if (!ym?.geocode) return;
-    ym.geocode(coords, { results: 1 }).then((result) => {
+    if (typeof window.ymaps?.geocode !== 'function') {
+      setForm((prev) => ({ ...prev, address: `${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}` }));
+      return;
+    }
+    try {
+      const result = await window.ymaps.geocode(coords, { results: 1 });
       const obj = result.geoObjects.get(0);
       if (obj) {
         const addr = obj.getAddressLine();
-        const clean = addr
-          .replace(/^(Беларусь|Belarus|Белоруссия),?\s*/i, '')
-          .replace(/^\d{6},?\s*/, '')
-          .trim();
+        const clean = addr.replace(/^(Беларусь|Belarus),?\s*/i, '').replace(/^Минск,?\s*/i, '');
         setForm((prev) => ({ ...prev, address: clean }));
       }
-    }).catch(() => {});
+    } catch { /* silent */ }
   };
 
   // ── file upload ───────────────────────────────────────────
@@ -248,7 +284,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
               name="address"
               value={form.address}
               onChange={handleAddressInput}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onBlur={handleAddressBlur}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               required
               placeholder="ул. Ленина, 1"
@@ -355,9 +391,9 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
                 geometry={manualPoint}
                 options={{
                   iconLayout: 'default#image',
-                  iconImageHref: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='48' viewBox='0 0 36 48'%3E%3Cpath d='M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z' fill='%23f2d09a' stroke='%23c9a962' stroke-width='2'/%3E%3Ccircle cx='18' cy='18' r='7' fill='%23141820'/%3E%3C/svg%3E",
-                  iconImageSize: [36, 48],
-                  iconImageOffset: [-18, -48],
+                  iconImageHref: MAP_PIN_HREF,
+                  iconImageSize: [44, 56],
+                  iconImageOffset: [-22, -56],
                 }}
               />
             )}
