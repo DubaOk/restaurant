@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { YMaps, Map, Placemark } from '@pbe/react-yandex-maps';
 import { restaurantsApi } from '../../api/restaurants.api';
+import { BELARUS_CITY_NAMES, getCityMapCenter } from '../../constants/belarusCities';
 import styles from './OwnerRestaurantForm.module.css';
 
-const MINSK_CENTER = [53.9023, 27.5619];
 const YANDEX_MAPS_API_KEY = import.meta.env.VITE_YANDEX_MAPS_API_KEY || '';
 
 const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
@@ -11,6 +11,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   const [form, setForm] = useState({
     name: '',
     description: '',
+    city: 'Минск',
     address: '',
     cuisine: '',
     phone: '',
@@ -30,6 +31,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       setForm({
         name: restaurant.name || '',
         description: restaurant.description || '',
+        city: restaurant.city || 'Минск',
         address: restaurant.address || '',
         cuisine: restaurant.cuisine || '',
         phone: restaurant.phone || '',
@@ -48,6 +50,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       setForm({
         name: '',
         description: '',
+        city: 'Минск',
         address: '',
         cuisine: '',
         phone: '',
@@ -56,10 +59,15 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       });
       setExistingImages([]);
       setNewImages([]);
-      setManualPoint([MINSK_CENTER[0], MINSK_CENTER[1]]);
+      setManualPoint([...getCityMapCenter('Минск')]);
       setManualPointEnabled(false);
     }
   }, [restaurant]);
+
+  useEffect(() => {
+    if (restaurant || !form.city || manualPointEnabled) return;
+    setManualPoint([...getCityMapCenter(form.city)]);
+  }, [form.city, restaurant, manualPointEnabled]);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -70,14 +78,14 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
     setNewImages(selected);
   };
 
-  const mapState = useMemo(
-    () => ({
-      center: manualPoint || MINSK_CENTER,
+  const mapState = useMemo(() => {
+    const center = manualPoint || getCityMapCenter(form.city);
+    return {
+      center,
       zoom: manualPoint ? 14 : 11,
       controls: [],
-    }),
-    [manualPoint]
-  );
+    };
+  }, [manualPoint, form.city]);
 
   const mapQuery = useMemo(() => {
     const query = { lang: 'ru_RU' };
@@ -113,7 +121,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       setExistingImages((res.data.data.images || []).map((img) => img.url));
       setNewImages([]);
       setManualPointEnabled(false);
-      setSuccess(isEdit ? 'Ресторан обновлён' : 'Ресторан создан');
+      setSuccess(isEdit ? 'Карточка обновлена' : 'Заведение добавлено в гид');
     } catch (err) {
       const message = err.response?.data?.message || 'Ошибка сохранения';
       setError(message);
@@ -127,14 +135,14 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      <h2>{isEdit ? 'Редактировать ресторан' : 'Создать ресторан'}</h2>
+      <h2>{isEdit ? 'Карточка заведения' : 'Новое заведение в гиде'}</h2>
 
       {success && <p className={styles.success}>{success}</p>}
       {error && <p className={styles.error}>{error}</p>}
 
       <div className={styles.grid}>
         <div className={styles.field}>
-          <label>Название *</label>
+          <label>Название заведения *</label>
           <input name="name" value={form.name} onChange={handleChange} required />
         </div>
         <div className={styles.field}>
@@ -142,7 +150,17 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
           <input name="cuisine" value={form.cuisine} onChange={handleChange} required placeholder="Итальянская" />
         </div>
         <div className={styles.field}>
-          <label>Адрес *</label>
+          <label>Город *</label>
+          <select name="city" value={form.city} onChange={handleChange} required>
+            {BELARUS_CITY_NAMES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.field}>
+          <label>Адрес заведения *</label>
           <input name="address" value={form.address} onChange={handleChange} required placeholder="ул. Ленина, 1" />
         </div>
         <div className={styles.field}>
@@ -150,15 +168,15 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
           <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 17 XXX-XX-XX" />
         </div>
         <div className={styles.field}>
-          <label>Открытие</label>
+          <label>Открытие зала</label>
           <input name="openTime" value={form.openTime} onChange={handleChange} placeholder="10:00" />
         </div>
         <div className={styles.field}>
-          <label>Закрытие</label>
+          <label>Последний приём гостей</label>
           <input name="closeTime" value={form.closeTime} onChange={handleChange} placeholder="23:00" />
         </div>
         <div className={styles.field}>
-          <label>Фото ресторана</label>
+          <label>Фото интерьера / зала</label>
           <input type="file" multiple accept="image/*" onChange={handleFilesChange} />
           {newImages.length > 0 && (
             <p className={styles.helper}>Выбрано новых файлов: {newImages.length}</p>
@@ -188,7 +206,8 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       <div className={styles.field}>
         <label>Точка на карте</label>
         <p className={styles.coordHint}>
-          При создании ресторана без ручной точки используются координаты центра Минска — затем можно уточнить на карте.
+          Если точку не выбрать вручную, для геолокации на карте гостей используется центр выбранного города — уточните
+          положение заведения на карте ниже.
         </p>
         <button
           type="button"
@@ -226,7 +245,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       </div>
 
       <button type="submit" className={styles.btn} disabled={saving}>
-        {saving ? 'Сохранение...' : isEdit ? 'Сохранить изменения' : 'Создать ресторан'}
+        {saving ? 'Сохранение...' : isEdit ? 'Сохранить карточку' : 'Добавить в гид'}
       </button>
     </form>
   );

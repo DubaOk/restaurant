@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { menuApi } from '../../api/menu.api';
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import styles from './OwnerMenuManager.module.css';
 
 const EMPTY_ITEM = { name: '', description: '', price: '', category: '', isAvailable: true };
@@ -13,13 +14,14 @@ const OwnerMenuManager = ({ restaurantId }) => {
   const [newItem, setNewItem] = useState(EMPTY_ITEM);
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     setLoading(true);
     menuApi
       .getByRestaurant(restaurantId)
       .then(({ data }) => setItems(data.data))
-      .catch(() => setError('Не удалось загрузить меню'))
+      .catch(() => setError('Не удалось загрузить карту блюд'))
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
@@ -54,8 +56,12 @@ const OwnerMenuManager = ({ restaurantId }) => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Удалить позицию меню?')) return;
+  const requestDelete = (id) => setConfirmDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (confirmDeleteId == null) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     try {
       await menuApi.remove(id);
       setItems((prev) => prev.filter((i) => i.id !== id));
@@ -97,7 +103,7 @@ const OwnerMenuManager = ({ restaurantId }) => {
 
   return (
     <div className={styles.container}>
-      <h3 className={styles.title}>Меню ресторана</h3>
+      <h3 className={styles.title}>Карта блюд и цен</h3>
       {error && <p className={styles.error}>{error}</p>}
 
       {Object.entries(byCategory).map(([cat, catItems]) => (
@@ -172,7 +178,7 @@ const OwnerMenuManager = ({ restaurantId }) => {
                       <button type="button" className={styles.editBtn} onClick={() => startEdit(item)}>
                         Изменить
                       </button>
-                      <button type="button" className={styles.deleteBtn} onClick={() => handleDelete(item.id)}>
+                      <button type="button" className={styles.deleteBtn} onClick={() => requestDelete(item.id)}>
                         Удалить
                       </button>
                     </div>
@@ -223,6 +229,17 @@ const OwnerMenuManager = ({ restaurantId }) => {
           {adding ? 'Добавление...' : '+ Добавить'}
         </button>
       </form>
+
+      <ConfirmDialog
+        open={confirmDeleteId != null}
+        title="Убрать позицию"
+        message="Блюдо будет удалено из карты меню. Продолжить?"
+        confirmLabel="Убрать"
+        cancelLabel="Отмена"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 };

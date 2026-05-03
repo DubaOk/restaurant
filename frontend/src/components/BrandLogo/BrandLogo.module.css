@@ -1,0 +1,17 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mark {
+  width: 2rem;
+  height: 2rem;
+  display: block;
+}
+
+.compact .mark {
+  width: 1.65rem;
+  height: 1.65rem;
+}

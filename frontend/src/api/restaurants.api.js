@@ -6,6 +6,7 @@ const buildRestaurantFormData = (data = {}) => {
   const scalarFields = [
     'name',
     'description',
+    'city',
     'address',
     'cuisine',
     'phone',

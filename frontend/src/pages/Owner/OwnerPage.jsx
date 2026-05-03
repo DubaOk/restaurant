@@ -8,9 +8,10 @@ import OwnerReservations from '../../components/OwnerReservations/OwnerReservati
 import OwnerAnalytics from '../../components/OwnerAnalytics/OwnerAnalytics';
 import OwnerMenuManager from '../../components/OwnerMenuManager/OwnerMenuManager';
 import OwnerPromotionsManager from '../../components/OwnerPromotionsManager/OwnerPromotionsManager';
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 import styles from './OwnerPage.module.css';
 
-const TABS = ['Мои рестораны', 'Бронирования', 'Меню', 'Акции', 'Аналитика'];
+const TABS = ['Заведения и зал', 'Бронь гостей', 'Меню и цены', 'Акции', 'Показатели'];
 
 const OwnerPage = () => {
   const { user } = useAuth();
@@ -19,6 +20,7 @@ const OwnerPage = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   useEffect(() => {
     restaurantsApi
@@ -32,6 +34,7 @@ const OwnerPage = () => {
   }, [user]);
 
   const selectedRestaurant = restaurants.find((r) => r.id === selectedRestaurantId) || null;
+  const hasRestaurants = restaurants.length > 0;
 
   const handleSavedRestaurant = (saved) => {
     setRestaurants((prev) => {
@@ -43,11 +46,19 @@ const OwnerPage = () => {
     setIsCreating(false);
   };
 
-  const handleDeleteRestaurant = async (id) => {
-    if (!window.confirm('Удалить этот ресторан?')) return;
-    await restaurantsApi.remove(id);
-    setRestaurants((prev) => prev.filter((r) => r.id !== id));
-    setSelectedRestaurantId((prev) => (prev === id ? null : prev));
+  const requestDeleteRestaurant = (id) => setDeleteTargetId(id);
+
+  const confirmDeleteRestaurant = async () => {
+    if (deleteTargetId == null) return;
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
+    try {
+      await restaurantsApi.remove(id);
+      setRestaurants((prev) => prev.filter((r) => r.id !== id));
+      setSelectedRestaurantId((prev) => (prev === id ? null : prev));
+    } catch {
+      /* silent */
+    }
   };
 
   return (
@@ -55,7 +66,7 @@ const OwnerPage = () => {
       <Navbar />
       <main className={styles.shell}>
         <div className={styles.inner}>
-        <h1 className={styles.title}>Мои рестораны</h1>
+        <h1 className={styles.title}>Кабинет ресторатора</h1>
 
         {loading ? (
           <p className={styles.loading}>Загрузка...</p>
@@ -74,11 +85,37 @@ const OwnerPage = () => {
               ))}
             </div>
 
+            <div className={styles.workspaceBar}>
+              <label className={styles.workspaceLabel} htmlFor="restaurateur-establishment-select">
+                Активное заведение
+              </label>
+              <select
+                id="restaurateur-establishment-select"
+                className={styles.workspaceSelect}
+                value={selectedRestaurantId ?? ''}
+                onChange={(e) => {
+                  const nextId = e.target.value ? Number(e.target.value) : null;
+                  setSelectedRestaurantId(nextId);
+                  setIsCreating(false);
+                }}
+                disabled={!hasRestaurants}
+              >
+                <option value="">
+                  {hasRestaurants ? 'Выберите заведение для работы' : 'Сначала добавьте заведение в гид'}
+                </option>
+                {restaurants.map((restaurant) => (
+                  <option key={restaurant.id} value={restaurant.id}>
+                    {restaurant.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className={styles.content}>
               {activeTab === 0 && (
                 <>
                   <div className={styles.pointsHeader}>
-                    <h2>В списке</h2>
+                    <h2>Ваши заведения</h2>
                     <button
                       type="button"
                       className={styles.btnAddPoint}
@@ -87,7 +124,7 @@ const OwnerPage = () => {
                         setSelectedRestaurantId(null);
                       }}
                     >
-                      + Добавить ресторан
+                      + Добавить в гид
                     </button>
                   </div>
 
@@ -107,12 +144,15 @@ const OwnerPage = () => {
                             }}
                           >
                             <strong>{item.name}</strong>
-                            <span>{item.address}</span>
+                            <span>
+                              {item.city ? `${item.city} · ` : ''}
+                              {item.address}
+                            </span>
                           </button>
                           <button
                             type="button"
                             className={styles.pointDelete}
-                            onClick={() => handleDeleteRestaurant(item.id)}
+                            onClick={() => requestDeleteRestaurant(item.id)}
                           >
                             Удалить
                           </button>
@@ -121,10 +161,23 @@ const OwnerPage = () => {
                     </div>
                   )}
 
-                  <OwnerRestaurantForm
-                    restaurant={isCreating ? null : selectedRestaurant}
-                    onSaved={handleSavedRestaurant}
-                  />
+                  {isCreating && (
+                    <OwnerRestaurantForm
+                      restaurant={null}
+                      onSaved={handleSavedRestaurant}
+                    />
+                  )}
+                  {!isCreating && selectedRestaurant && (
+                    <OwnerRestaurantForm
+                      restaurant={selectedRestaurant}
+                      onSaved={handleSavedRestaurant}
+                    />
+                  )}
+                  {!isCreating && !selectedRestaurant && (
+                    <p className={styles.empty}>
+                      Выберите заведение в списке или нажмите «Добавить в гид».
+                    </p>
+                  )}
                   {!isCreating && selectedRestaurant && (
                     <OwnerTablesManager restaurantId={selectedRestaurant.id} />
                   )}
@@ -143,13 +196,24 @@ const OwnerPage = () => {
                 <OwnerAnalytics restaurantId={selectedRestaurant.id} />
               )}
               {[1, 2, 3, 4].includes(activeTab) && !selectedRestaurant && (
-                <p className={styles.empty}>Сначала создайте ресторан и выберите его в списке</p>
+                <p className={styles.empty}>Добавьте заведение в гид и выберите его в списке</p>
               )}
             </div>
           </>
         )}
         </div>
       </main>
+
+      <ConfirmDialog
+        open={deleteTargetId != null}
+        title="Удалить заведение"
+        message="Заведение будет удалено из гида вместе с привязанными данными, которые допускает сервер. Продолжить?"
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        onConfirm={confirmDeleteRestaurant}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </>
   );
 };

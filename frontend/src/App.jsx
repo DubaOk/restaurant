@@ -44,13 +44,14 @@ const App = () => (
         }
       />
       <Route
-        path="/owner"
+        path="/cabinet/restaurateur"
         element={
           <ProtectedRoute roles={['OWNER']}>
             <OwnerPage />
           </ProtectedRoute>
         }
       />
+      <Route path="/owner" element={<Navigate to="/cabinet/restaurateur" replace />} />
 
       <Route path="/" element={<Navigate to="/restaurants" replace />} />
       <Route path="*" element={<NotFoundPage />} />

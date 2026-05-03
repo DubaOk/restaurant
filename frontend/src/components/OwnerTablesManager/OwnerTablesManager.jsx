@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { tablesApi } from '../../api/tables.api';
 import TableFloorPlan from '../TableFloorPlan/TableFloorPlan';
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import styles from './OwnerTablesManager.module.css';
 
 const rowDraft = (t) => ({
@@ -18,6 +19,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [newTable, setNewTable] = useState({ number: 1, capacity: 4, isAvailable: true });
+  const [tablePendingDelete, setTablePendingDelete] = useState(null);
 
   const reload = useCallback(async () => {
     if (!restaurantId) return;
@@ -95,13 +97,12 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
-  const removeRow = async (t) => {
-    if (
-      !window.confirm(
-        `Удалить стол №${t.number}? Связанные с ним бронирования в базе также будут удалены.`
-      )
-    )
-      return;
+  const requestRemoveRow = (t) => setTablePendingDelete(t);
+
+  const confirmRemoveRow = async () => {
+    if (!tablePendingDelete) return;
+    const t = tablePendingDelete;
+    setTablePendingDelete(null);
     setError('');
     try {
       await tablesApi.remove(t.id);
@@ -227,7 +228,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                             >
                               {savingId === t.id ? 'Сохранение…' : 'Сохранить'}
                             </button>
-                            <button type="button" className={styles.btnGhost} onClick={() => removeRow(t)}>
+                            <button type="button" className={styles.btnGhost} onClick={() => requestRemoveRow(t)}>
                               Удалить
                             </button>
                           </div>
@@ -286,6 +287,21 @@ const OwnerTablesManager = ({ restaurantId }) => {
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={tablePendingDelete != null}
+        title="Удалить стол"
+        message={
+          tablePendingDelete
+            ? `Удалить стол №${tablePendingDelete.number}? Связанные с ним бронирования в базе также будут удалены.`
+            : ''
+        }
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        onConfirm={confirmRemoveRow}
+        onCancel={() => setTablePendingDelete(null)}
+      />
     </section>
   );
 };

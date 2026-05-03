@@ -7,18 +7,18 @@ export const tablesApi = {
     api.get(`/tables/restaurant/${restaurantId}`, { params }),
 
   /**
-   * Владелец: создать стол.
+   * Ресторатор: создать стол в зале.
    * @param {{ restaurantId: number; number: number; capacity: number; isAvailable?: boolean }} payload
    */
   create: (payload) => api.post('/tables', payload),
 
   /**
-   * Владелец: обновить стол.
+   * Ресторатор: обновить стол.
    * @param {number} id
    * @param {{ number?: number; capacity?: number; isAvailable?: boolean }} payload
    */
   update: (id, payload) => api.put(`/tables/${id}`, payload),
 
-  /** Владелец: удалить стол */
+  /** Ресторатор: удалить стол */
   remove: (id) => api.delete(`/tables/${id}`),
 };

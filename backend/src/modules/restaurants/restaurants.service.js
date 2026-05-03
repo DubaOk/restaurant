@@ -54,7 +54,15 @@ const includeRestaurantRelationsFallback = {
   owner: { select: { id: true, name: true } },
 };
 
-const getAll = async ({ search, cuisine, minRating, sortBy = 'name', sortOrder = 'asc', ownerId } = {}) => {
+const getAll = async ({
+  search,
+  cuisine,
+  city,
+  minRating,
+  sortBy = 'name',
+  sortOrder = 'asc',
+  ownerId,
+} = {}) => {
   const orderField = ALLOWED_SORT.includes(sortBy) ? sortBy : 'name';
   const orderDir = ALLOWED_ORDER.includes(sortOrder) ? sortOrder : 'asc';
 
@@ -68,6 +76,9 @@ const getAll = async ({ search, cuisine, minRating, sortBy = 'name', sortOrder =
   }
 
   if (cuisine) where.cuisine = { equals: cuisine, mode: 'insensitive' };
+  if (city && String(city).trim()) {
+    where.city = { equals: String(city).trim(), mode: 'insensitive' };
+  }
   if (minRating) where.avgRating = { gte: parseFloat(minRating) };
   if (ownerId) where.ownerId = parseInt(ownerId);
 
@@ -163,10 +174,14 @@ const create = async (ownerId, data, uploadedImageUrls = []) => {
   const coords = await resolveCoordinates(data);
   const imageOps = buildImageOperations(data, uploadedImageUrls, null);
 
+  const cityValue =
+    data.city != null && String(data.city).trim() ? String(data.city).trim() : 'Минск';
+
   const created = await prisma.restaurant.create({
     data: {
       name: data.name,
       description: data.description || null,
+      city: cityValue,
       address: data.address,
       cuisine: data.cuisine,
       phone: data.phone || null,
@@ -210,6 +225,10 @@ const update = async (id, ownerId, data, uploadedImageUrls = []) => {
     data: {
       name: data.name ?? restaurant.name,
       description: data.description ?? restaurant.description,
+      city:
+        data.city != null && String(data.city).trim()
+          ? String(data.city).trim()
+          : restaurant.city,
       address: data.address ?? restaurant.address,
       cuisine: data.cuisine ?? restaurant.cuisine,
       phone: data.phone ?? restaurant.phone,

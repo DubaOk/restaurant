@@ -55,6 +55,46 @@
   gap: 1rem;
 }
 
+.workspaceBar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.workspaceLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--owner-muted);
+}
+
+.workspaceSelect {
+  min-width: 280px;
+  max-width: 460px;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--owner-border);
+  background: rgba(14, 18, 24, 0.85);
+  color: var(--owner-text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.workspaceSelect:focus {
+  border-color: rgba(242, 208, 154, 0.45);
+  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.15);
+}
+
+.workspaceSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .tabs {
   display: flex;
   gap: 0.2rem;

@@ -53,6 +53,7 @@ model Restaurant {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
+  city        String   @default("Минск")
   address     String
   cuisine     String
   phone       String?

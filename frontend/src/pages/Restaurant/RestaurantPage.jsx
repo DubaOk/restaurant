@@ -173,7 +173,7 @@ const RestaurantPage = () => {
       <main className={styles.page}>
         <section className={styles.overview}>
           <Link to="/restaurants" className={styles.backLink}>
-            ← Назад к списку
+            ← К подбору заведений
           </Link>
 
           <div className={styles.galleryGrid}>
@@ -190,14 +190,15 @@ const RestaurantPage = () => {
           </div>
 
           <section className={styles.headline}>
-            <h1>Ресторан {restaurant.name}</h1>
+            <h1>{restaurant.name}</h1>
             <div className={styles.awards}>
               <span className={styles.awardItem}><span className={styles.awardIcon}>A</span> Выбор A-Club</span>
-              <span className={styles.awardItem}><span className={styles.awardIcon}>★</span> Премиальный гид</span>
+              <span className={styles.awardItem}><span className={styles.awardIcon}>★</span> В подборке Бурмалда</span>
               <span className={styles.awardItem}><span className={styles.awardIcon}>#{restaurant.avgRating != null ? Number(restaurant.avgRating).toFixed(1) : '5.0'}</span> Рейтинг</span>
             </div>
             <p className={styles.description}>
-              {restaurant.description || 'Проект, который сочетает авторскую кухню, безупречный сервис и премиальную атмосферу в центре Минска.'}
+              {restaurant.description ||
+                `Заведение в ${restaurant.city || 'Беларуси'}: авторская кухня, сервис и атмосфера для вашего визита.`}
             </p>
             <div className={styles.actions}>
               {user && (
@@ -243,9 +244,13 @@ const RestaurantPage = () => {
           </section>
 
           <section className={styles.contacts}>
-            <h2>Адрес ресторана {restaurant.name}</h2>
+            <h2>Как нас найти</h2>
             <div className={styles.contactGrid}>
-              <p><span>⌖</span>{restaurant.address || 'Адрес уточняется'}</p>
+              <p>
+                <span>⌖</span>
+                {restaurant.city ? `${restaurant.city}, ` : ''}
+                {restaurant.address || 'Адрес уточняется'}
+              </p>
               <p><span>◷</span>{restaurant.openTime || '--:--'} - {restaurant.closeTime || '--:--'}</p>
               <p><span>☏</span>{restaurant.phone || 'Телефон уточняется'}</p>
               <p><span>◎</span>{restaurant.cuisine || 'Европейская кухня'}</p>

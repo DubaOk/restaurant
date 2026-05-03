@@ -89,7 +89,7 @@ const RegisterPage = () => {
             <label htmlFor="role">Роль</label>
             <select id="role" name="role" value={form.role} onChange={handleChange}>
               <option value="CLIENT">Клиент</option>
-              <option value="OWNER">Владелец ресторана</option>
+              <option value="OWNER">Ресторатор</option>
             </select>
           </div>
 

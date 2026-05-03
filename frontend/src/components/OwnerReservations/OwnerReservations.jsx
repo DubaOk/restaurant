@@ -37,7 +37,7 @@ const OwnerReservations = ({ restaurantId }) => {
   };
 
   if (loading) return <p className={styles.loading}>Загрузка...</p>;
-  if (reservations.length === 0) return <p className={styles.empty}>Бронирований нет</p>;
+  if (reservations.length === 0) return <p className={styles.empty}>Гостевых броней пока нет</p>;
 
   return (
     <ul className={styles.list}>

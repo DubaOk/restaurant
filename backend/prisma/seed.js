@@ -126,6 +126,31 @@ const curatedMinskRestaurants = [
   },
 ];
 
+const regionalShowcase = [
+  {
+    id: 113,
+    name: 'Гродненский двор',
+    category: 'Белорусская кухня',
+    description: 'Камерный зал с печными блюдами и настойками на травах — акцент на локальных продуктах Неманского края.',
+    rating: 4.7,
+    city: 'Гродно',
+    address: 'ул. Дзержинского, 1, Гродно',
+    coordinates: [53.6778, 23.8292],
+    image_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80',
+  },
+  {
+    id: 114,
+    name: 'Буг-бистро',
+    category: 'Современная европейская',
+    description: 'Городской бистро у Буга: сезонное меню, винная пара и формат ужина без лишней суеты.',
+    rating: 4.6,
+    city: 'Брест',
+    address: 'ул. Советская, 12, Брест',
+    coordinates: [52.0938, 23.6851],
+    image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1400&q=80',
+  },
+];
+
 async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10);
   const ownerPassword = await bcrypt.hash('owner123', 10);
@@ -140,7 +165,7 @@ async function main() {
   const owner = await prisma.user.upsert({
     where: { email: 'owner@restaurants.by' },
     update: {},
-    create: { name: 'Владелец Иванов', email: 'owner@restaurants.by', password: ownerPassword, role: 'OWNER' },
+    create: { name: 'Ресторатор Иванов', email: 'owner@restaurants.by', password: ownerPassword, role: 'OWNER' },
   });
 
   const client = await prisma.user.upsert({
@@ -151,10 +176,11 @@ async function main() {
 
   const restaurant = await prisma.restaurant.upsert({
     where: { id: 1 },
-    update: {},
+    update: { city: 'Минск' },
     create: {
       name: 'Ресторан Минск',
       description: 'Уютный ресторан с белорусской кухней в центре Минска.',
+      city: 'Минск',
       address: 'пр-т Независимости, 17, Минск',
       cuisine: 'Белорусская',
       phone: '+375 17 200-00-01',
@@ -195,12 +221,15 @@ async function main() {
     skipDuplicates: true,
   });
 
-  for (const item of curatedMinskRestaurants) {
+  const allSeeded = [...curatedMinskRestaurants.map((r) => ({ ...r, city: 'Минск' })), ...regionalShowcase];
+
+  for (const item of allSeeded) {
     await prisma.restaurant.upsert({
       where: { id: item.id },
       update: {
         name: item.name,
         description: item.description,
+        city: item.city,
         address: item.address,
         cuisine: item.category,
         avgRating: item.rating,
@@ -213,6 +242,7 @@ async function main() {
         id: item.id,
         name: item.name,
         description: item.description,
+        city: item.city,
         address: item.address,
         cuisine: item.category,
         avgRating: item.rating,

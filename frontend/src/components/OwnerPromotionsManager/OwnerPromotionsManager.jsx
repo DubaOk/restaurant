@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { promotionsApi } from '../../api/promotions.api';
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import styles from './OwnerPromotionsManager.module.css';
 
 const EMPTY_PROMO = { title: '', description: '', startDate: '', endDate: '' };
@@ -16,6 +17,7 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
   const [newPromo, setNewPromo] = useState(EMPTY_PROMO);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -55,8 +57,12 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Удалить акцию?')) return;
+  const requestDelete = (id) => setConfirmDeleteId(id);
+
+  const confirmDelete = async () => {
+    if (confirmDeleteId == null) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     try {
       await promotionsApi.remove(id);
       setPromos((prev) => prev.filter((p) => p.id !== id));
@@ -160,7 +166,7 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
                   <button type="button" className={styles.editBtn} onClick={() => startEdit(promo)}>
                     Изменить
                   </button>
-                  <button type="button" className={styles.deleteBtn} onClick={() => handleDelete(promo.id)}>
+                  <button type="button" className={styles.deleteBtn} onClick={() => requestDelete(promo.id)}>
                     Удалить
                   </button>
                 </div>
@@ -211,6 +217,17 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
           {adding ? 'Добавление...' : '+ Добавить'}
         </button>
       </form>
+
+      <ConfirmDialog
+        open={confirmDeleteId != null}
+        title="Удалить акцию"
+        message="Акция будет удалена и перестанет отображаться гостям. Продолжить?"
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 };

@@ -20,7 +20,7 @@ const OwnerAnalytics = ({ restaurantId }) => {
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
-  if (loading) return <p className={styles.loading}>Загрузка аналитики...</p>;
+  if (loading) return <p className={styles.loading}>Загрузка показателей...</p>;
   if (!stats) return <p className={styles.empty}>Данных пока нет</p>;
 
   const cancelRate = stats.totalReservations > 0
@@ -31,7 +31,7 @@ const OwnerAnalytics = ({ restaurantId }) => {
     <div className={styles.container}>
       <div className={styles.cards}>
         <div className={styles.card}>
-          <span className={styles.label}>Всего бронирований</span>
+          <span className={styles.label}>Всего гостевых броней</span>
           <span className={styles.value}>{stats.totalReservations}</span>
         </div>
         <div className={styles.card}>
@@ -62,7 +62,7 @@ const OwnerAnalytics = ({ restaurantId }) => {
 
       {stats.reservationsByStatus?.length > 0 && (
         <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Бронирования по статусам</h3>
+          <h3 className={styles.sectionTitle}>Брони по статусам</h3>
           <div className={styles.statusList}>
             {stats.reservationsByStatus.map((s) => (
               <div key={s.status} className={styles.statusItem}>
@@ -84,7 +84,7 @@ const OwnerAnalytics = ({ restaurantId }) => {
 
       {stats.recentReservations?.length > 0 && (
         <div className={styles.section}>
-          <h3 className={styles.sectionTitle}>Последние бронирования</h3>
+          <h3 className={styles.sectionTitle}>Последние брони</h3>
           <div className={styles.recentList}>
             {stats.recentReservations.map((r) => (
               <div key={r.id} className={styles.recentItem}>

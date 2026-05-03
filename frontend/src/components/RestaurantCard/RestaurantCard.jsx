@@ -2,14 +2,15 @@ import { Link } from 'react-router-dom';
 import styles from './RestaurantCard.module.css';
 
 const RestaurantCard = ({ restaurant }) => {
-  const { id, name, cuisine, address, avgRating, imageUrl, coverImage, images, openTime, closeTime } = restaurant;
+  const { id, name, city, cuisine, address, avgRating, imageUrl, coverImage, images, openTime, closeTime } =
+    restaurant;
   const mainImage = coverImage || images?.[0]?.url || imageUrl;
   const hasRating = avgRating != null;
   const ratingText = hasRating ? Number(avgRating).toFixed(1) : 'Новый';
   const workingHours = openTime && closeTime ? `${openTime} - ${closeTime}` : 'Уточняйте время работы';
 
   return (
-    <Link to={`/restaurants/${id}`} className={styles.card} aria-label={`Открыть ресторан ${name}`}>
+    <Link to={`/restaurants/${id}`} className={styles.card} aria-label={`Открыть карточку заведения ${name}`}>
       <div
         className={styles.imgWrapper}
         style={mainImage ? { backgroundImage: `url(${mainImage})` } : undefined}
@@ -23,7 +24,7 @@ const RestaurantCard = ({ restaurant }) => {
             <span>{ratingText}</span>
           </div>
         </div>
-        <span className={styles.badge}>Минск</span>
+        <span className={styles.badge}>{city || 'Беларусь'}</span>
       </div>
 
       <div className={styles.body}>
