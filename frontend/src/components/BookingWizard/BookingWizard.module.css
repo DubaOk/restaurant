@@ -1,0 +1,451 @@
+.wizard {
+  position: relative;
+  background: rgba(18, 22, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 1.75rem 2rem;
+  color: #e8eaed;
+  /* backdrop-filter НЕ ставим на сам элемент: Chrome делает его containing block
+     для position:fixed потомков → попап TableFloorPlan позиционируется неверно */
+}
+
+.wizard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Step bar ─────────────────────────────────────────── */
+.stepBar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.85rem;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.stepNum {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.28s, background 0.28s, color 0.28s;
+}
+
+.stepNumActive {
+  border-color: #c9a962;
+  background: rgba(201, 169, 98, 0.14);
+  color: #f2d09a;
+}
+
+.stepNumDone {
+  border-color: rgba(72, 170, 120, 0.55);
+  background: rgba(34, 88, 58, 0.28);
+  color: #7dd3a8;
+}
+
+.stepLabel {
+  font-size: 0.78rem;
+  color: #9aa3b2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.28s;
+}
+
+.stepLabelActive {
+  color: #f2d09a;
+  font-weight: 500;
+}
+
+.stepLabelDone {
+  color: #7dd3a8;
+}
+
+.stepConnector {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 0.6rem;
+}
+
+/* ─── Step content ─────────────────────────────────────── */
+.stepContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f5f5f7;
+  letter-spacing: -0.01em;
+}
+
+.stepHint {
+  margin: -0.5rem 0 0;
+  font-size: 0.86rem;
+  color: #9aa3b2;
+}
+
+/* ─── Step 1: date / guests ─────────────────────────────── */
+.dateTimeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+}
+
+.fieldLabel {
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b8c0cc;
+}
+
+.input {
+  padding: 0.72rem 0.92rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(14, 18, 24, 0.92);
+  color: #f2f2f2;
+  font-size: 0.94rem;
+  font-family: inherit;
+  outline: none;
+  color-scheme: dark;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: rgba(242, 208, 154, 0.45);
+  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.1);
+}
+
+.guestCounter {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.counterBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(14, 18, 24, 0.8);
+  color: #f2f2f2;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.counterBtn:hover {
+  background: rgba(242, 208, 154, 0.1);
+  border-color: rgba(242, 208, 154, 0.35);
+}
+
+.counterValue {
+  min-width: 3.2rem;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f2f2f2;
+  letter-spacing: -0.02em;
+}
+
+.counterHint {
+  margin-left: 0.4rem;
+  font-size: 0.88rem;
+  color: #9aa3b2;
+}
+
+/* ─── Step 2: floor plan ────────────────────────────────── */
+.floorWrap {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(10, 13, 18, 0.55);
+  /* overflow: visible — не клипируем position:fixed попап TableFloorPlan */
+}
+
+.noTables {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: #9aa3b2;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.selectionRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.selectionBadge {
+  padding: 0.32rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(242, 208, 154, 0.1);
+  border: 1px solid rgba(242, 208, 154, 0.35);
+  color: #f2d09a;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.conflictBadge {
+  padding: 0.32rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(87, 22, 22, 0.35);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #f3b4b4;
+  font-size: 0.82rem;
+}
+
+/* ─── Step 3: summary ───────────────────────────────────── */
+.summary {
+  padding: 1.1rem 1.3rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(14, 18, 24, 0.7);
+}
+
+.summaryRestaurant {
+  margin: 0 0 0.85rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+  color: #f2d09a;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.summaryLabel {
+  font-size: 0.78rem;
+  color: #9aa3b2;
+  align-self: center;
+}
+
+.summaryValue {
+  font-size: 0.92rem;
+  color: #f0f2f6;
+  font-weight: 500;
+}
+
+.summaryNote {
+  margin: 0.85rem 0 0;
+  font-size: 0.74rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.textarea {
+  padding: 0.72rem 0.92rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(14, 18, 24, 0.92);
+  color: #f2f2f2;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  color-scheme: dark;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.textarea:focus {
+  border-color: rgba(242, 208, 154, 0.45);
+}
+
+/* ─── Navigation ────────────────────────────────────────── */
+.navRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.btnBack {
+  padding: 0.62rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btnBack:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #f0f2f6;
+}
+
+.btnPrimary {
+  padding: 0.7rem 1.75rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #f2d09a 0%, #c9a962 100%);
+  color: #141820;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.18s, opacity 0.2s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnOutline {
+  padding: 0.62rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(72, 170, 120, 0.4);
+  background: transparent;
+  color: #7dd3a8;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btnOutline:hover {
+  background: rgba(34, 88, 58, 0.2);
+}
+
+/* ─── Errors ────────────────────────────────────────────── */
+.error {
+  padding: 0.65rem 0.88rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  background: rgba(87, 22, 22, 0.35);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  color: #f3b4b4;
+  margin: 0;
+}
+
+/* ─── Success ───────────────────────────────────────────── */
+.successScreen {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 2.75rem 1.5rem;
+  text-align: center;
+  background: rgba(18, 22, 30, 0.85);
+  border: 1px solid rgba(72, 170, 120, 0.28);
+  border-radius: 18px;
+}
+
+.successIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(34, 88, 58, 0.38);
+  border: 2px solid rgba(72, 170, 120, 0.48);
+  color: #7dd3a8;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.successTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #7dd3a8;
+}
+
+.successText {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #9aa3b2;
+  max-width: 420px;
+  line-height: 1.55;
+}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 620px) {
+  .wizard {
+    padding: 1.25rem 1.1rem;
+  }
+
+  .dateTimeRow {
+    grid-template-columns: 1fr;
+  }
+
+  .stepLabel {
+    display: none;
+  }
+
+  .stepConnector {
+    min-width: 18px;
+    flex: 0 0 18px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .summaryLabel {
+    color: #6b7280;
+    font-size: 0.72rem;
+  }
+}

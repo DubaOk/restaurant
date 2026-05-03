@@ -65,4 +65,13 @@ const confirm = async (req, res, next) => {
   }
 };
 
-module.exports = { getMyReservations, getRestaurantReservations, create, update, cancel, confirm };
+const complete = async (req, res, next) => {
+  try {
+    const reservation = await reservationsService.complete(parseInt(req.params.id, 10), req.user.id);
+    res.json({ success: true, data: reservation });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getMyReservations, getRestaurantReservations, create, update, cancel, confirm, complete };

@@ -1,6 +1,7 @@
 /**
  * Раскладка столиков на условном плане зала (viewBox-координаты).
- * При отсутствии полей разметки из БД — сетка «зал как кинозал»: ряды сверху вниз.
+ * Если у столика заданы posX/posY — используются как координаты центра.
+ * Иначе — автоматическая сетка «зал как кинозал»: ряды сверху вниз.
  */
 export function computeTableLayouts(tables) {
   const n = tables.length;
@@ -24,14 +25,20 @@ export function computeTableLayouts(tables) {
     const cap = Number(table.capacity) || 2;
     const w = Math.min(92, cellW - 16) + Math.min(cap, 8) * 2.5;
     const h = 44 + Math.min(cap, 10) * 3.5;
-    const cx = marginX + col * cellW + cellW / 2;
-    const cy = marginTop + row * cellH + cellH / 2;
+
+    const cx =
+      table.posX != null ? table.posX : marginX + col * cellW + cellW / 2;
+    const cy =
+      table.posY != null ? table.posY : marginTop + row * cellH + cellH / 2;
+
     return {
       table,
       x: cx - w / 2,
       y: cy - h / 2,
       w,
       h,
+      cx,
+      cy,
       rx: Math.min(14, h * 0.22),
     };
   });

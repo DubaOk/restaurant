@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/Navbar/Navbar';
 import ReviewList from '../../components/ReviewList/ReviewList';
 import ReviewForm from '../../components/ReviewForm/ReviewForm';
-import ReservationForm from '../../components/ReservationForm/ReservationForm';
+import BookingWizard from '../../components/BookingWizard/BookingWizard';
 import PromotionList from '../../components/PromotionList/PromotionList';
 import styles from './RestaurantPage.module.css';
 
@@ -264,7 +264,7 @@ const RestaurantPage = () => {
               <div className={styles.bookingHeader}>
                 <h2 className={styles.sectionTitle}>Бронирование</h2>
               </div>
-              <ReservationForm restaurantId={id} />
+              <BookingWizard restaurantId={id} restaurantName={restaurant?.name} />
             </div>
           </section>
         )}

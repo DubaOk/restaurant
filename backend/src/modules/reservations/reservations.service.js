@@ -144,4 +144,21 @@ const confirm = async (id, ownerId) => {
   return updated;
 };
 
-module.exports = { getMyReservations, getRestaurantReservations, create, update, cancel, confirm };
+const complete = async (id, ownerId) => {
+  const reservation = await prisma.reservation.findUnique({
+    where: { id },
+    include: { restaurant: true },
+  });
+  if (!reservation) throw ApiError.notFound('Бронирование не найдено');
+  if (reservation.restaurant.ownerId !== ownerId) throw ApiError.forbidden('Нет прав');
+  if (reservation.status !== 'CONFIRMED')
+    throw ApiError.badRequest('Подтвердить посещение можно только для подтверждённых броней');
+
+  return prisma.reservation.update({
+    where: { id },
+    data: { status: 'COMPLETED' },
+    include: RESERVATION_INCLUDE,
+  });
+};
+
+module.exports = { getMyReservations, getRestaurantReservations, create, update, cancel, confirm, complete };

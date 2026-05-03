@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { reservationsApi } from '../../api/reservations.api';
 import Navbar from '../../components/Navbar/Navbar';
+import EditBookingModal from '../../components/EditBookingModal/EditBookingModal';
 import styles from './ReservationsPage.module.css';
 
 const STATUS_LABELS = {
   PENDING: 'Ожидает',
   CONFIRMED: 'Подтверждено',
   CANCELLED: 'Отменено',
-  COMPLETED: 'Завершено',
+  COMPLETED: 'Посещение состоялось',
+};
+
+const STATUS_ICONS = {
+  PENDING: '🕐',
+  CONFIRMED: '✓',
+  CANCELLED: '✕',
+  COMPLETED: '★',
 };
 
 const TABS = ['Активные', 'История посещений'];
@@ -17,10 +25,8 @@ const ReservationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ date: '', guestsCount: 1 });
-  const [editError, setEditError] = useState('');
-  const [editSaving, setEditSaving] = useState(false);
+  const [editingReservation, setEditingReservation] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
 
   useEffect(() => {
     reservationsApi
@@ -31,40 +37,21 @@ const ReservationsPage = () => {
   }, []);
 
   const handleCancel = async (id) => {
+    if (cancellingId) return;
+    setCancellingId(id);
     try {
       await reservationsApi.cancel(id);
-      setReservations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: 'CANCELLED' } : r))
-      );
+      setReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'CANCELLED' } : r)));
     } catch {
       /* silent */
-    }
-  };
-
-  const startEdit = (r) => {
-    const local = new Date(r.date);
-    const pad = (n) => String(n).padStart(2, '0');
-    const dateStr = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
-    setEditForm({ date: dateStr, guestsCount: r.guestsCount });
-    setEditError('');
-    setEditingId(r.id);
-  };
-
-  const handleEditSubmit = async (id) => {
-    setEditSaving(true);
-    setEditError('');
-    try {
-      const { data } = await reservationsApi.update(id, {
-        date: new Date(editForm.date).toISOString(),
-        guestsCount: parseInt(editForm.guestsCount, 10),
-      });
-      setReservations((prev) => prev.map((r) => (r.id === id ? data.data : r)));
-      setEditingId(null);
-    } catch (err) {
-      setEditError(err.response?.data?.message || 'Ошибка при изменении бронирования');
     } finally {
-      setEditSaving(false);
+      setCancellingId(null);
     }
+  };
+
+  const handleSaved = (updated) => {
+    setReservations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    setEditingReservation(null);
   };
 
   const active = reservations.filter((r) => ['PENDING', 'CONFIRMED'].includes(r.status));
@@ -87,6 +74,9 @@ const ReservationsPage = () => {
                 onClick={() => setActiveTab(i)}
               >
                 {tab}
+                <span className={styles.tabCount}>
+                  {(i === 0 ? active : history).length}
+                </span>
               </button>
             ))}
           </div>
@@ -94,75 +84,58 @@ const ReservationsPage = () => {
           {error && <p className={styles.error}>{error}</p>}
 
           {loading ? (
-            <p className={styles.loading}>Загрузка...</p>
+            <p className={styles.loading}>Загрузка…</p>
           ) : displayed.length === 0 ? (
-            <p className={styles.empty}>
-              {activeTab === 0 ? 'Активных бронирований нет' : 'История посещений пуста'}
-            </p>
+            <div className={styles.empty}>
+              <p>{activeTab === 0 ? 'Активных бронирований нет' : 'История посещений пуста'}</p>
+              {activeTab === 0 && (
+                <p className={styles.emptyHint}>
+                  Забронируйте столик в карточке ресторана — это займёт меньше минуты.
+                </p>
+              )}
+            </div>
           ) : (
             <ul className={styles.list}>
               {displayed.map((r) => (
-                <li key={r.id} className={styles.item}>
-                  {editingId === r.id ? (
-                    <div className={styles.editBlock}>
-                      <h4 className={styles.editTitle}>Изменить бронирование</h4>
-                      {editError && <p className={styles.editError}>{editError}</p>}
-                      <div className={styles.editRow}>
-                        <label className={styles.editLabel}>Дата и время</label>
-                        <input
-                          type="datetime-local"
-                          className={styles.editInput}
-                          value={editForm.date}
-                          onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
-                        />
+                <li
+                  key={r.id}
+                  className={`${styles.item} ${r.status === 'COMPLETED' ? styles.itemCompleted : ''} ${r.status === 'CANCELLED' ? styles.itemCancelled : ''}`}
+                >
+                  <div className={styles.statusStripe} data-status={r.status} />
+
+                  <div className={styles.itemBody}>
+                    <div className={styles.info}>
+                      <span className={styles.restaurantName}>{r.restaurant?.name}</span>
+                      <span className={styles.date}>
+                        {new Date(r.date).toLocaleString('ru-RU', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </span>
+                      <div className={styles.meta}>
+                        <span>Гостей: {r.guestsCount}</span>
+                        {r.table && <span>· Стол №{r.table.number}</span>}
                       </div>
-                      <div className={styles.editRow}>
-                        <label className={styles.editLabel}>Гостей</label>
-                        <input
-                          type="number"
-                          className={styles.editInput}
-                          min={1}
-                          max={20}
-                          value={editForm.guestsCount}
-                          onChange={(e) => setEditForm((p) => ({ ...p, guestsCount: e.target.value }))}
-                        />
-                      </div>
-                      <div className={styles.editActions}>
-                        <button
-                          type="button"
-                          className={styles.saveBtn}
-                          onClick={() => handleEditSubmit(r.id)}
-                          disabled={editSaving}
-                        >
-                          {editSaving ? 'Сохранение…' : 'Сохранить'}
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.cancelBtn}
-                          onClick={() => setEditingId(null)}
-                        >
-                          Отмена
-                        </button>
-                      </div>
+                      {r.comment && <span className={styles.comment}>{r.comment}</span>}
                     </div>
-                  ) : (
-                    <>
-                      <div className={styles.info}>
-                        <span className={styles.restaurantName}>{r.restaurant?.name}</span>
-                        <span className={styles.date}>
-                          {new Date(r.date).toLocaleString('ru-RU')}
-                        </span>
-                        <span className={styles.guests}>Гостей: {r.guestsCount}</span>
-                        {r.comment && <span className={styles.comment}>{r.comment}</span>}
-                      </div>
-                      <div className={styles.right}>
-                        <span className={`${styles.badge} ${styles[r.status.toLowerCase()]}`}>
-                          {STATUS_LABELS[r.status]}
-                        </span>
+
+                    <div className={styles.right}>
+                      <span className={`${styles.badge} ${styles[r.status.toLowerCase()]}`}>
+                        <span className={styles.badgeIcon}>{STATUS_ICONS[r.status]}</span>
+                        {STATUS_LABELS[r.status]}
+                      </span>
+
+                      {r.status === 'COMPLETED' && (
+                        <p className={styles.completedNote}>
+                          Спасибо за посещение! Вы можете оставить отзыв в карточке ресторана.
+                        </p>
+                      )}
+
+                      <div className={styles.btnRow}>
                         {r.status === 'PENDING' && (
                           <button
                             className={styles.editBtn}
-                            onClick={() => startEdit(r)}
+                            onClick={() => setEditingReservation(r)}
                           >
                             Изменить
                           </button>
@@ -170,20 +143,29 @@ const ReservationsPage = () => {
                         {(r.status === 'PENDING' || r.status === 'CONFIRMED') && (
                           <button
                             className={styles.cancelBtn}
+                            disabled={cancellingId === r.id}
                             onClick={() => handleCancel(r.id)}
                           >
-                            Отменить
+                            {cancellingId === r.id ? '…' : 'Отменить'}
                           </button>
                         )}
                       </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
       </main>
+
+      {editingReservation && (
+        <EditBookingModal
+          reservation={editingReservation}
+          onClose={() => setEditingReservation(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </>
   );
 };

@@ -83,7 +83,7 @@ function TableFloorPlan({
   }, []);
 
   const onPointerDownBackdrop = useCallback((e) => {
-    if (e.target.closest(`.${styles.tableHit}`)) return;
+    if (e.target.closest('g[data-table]')) return;
     const v = viewRef.current;
     dragRef.current = { x: e.clientX, y: e.clientY, px: v.px, py: v.py, k: v.k };
   }, []);
@@ -212,6 +212,7 @@ function TableFloorPlan({
               return (
                 <g
                   key={table.id}
+                  data-table={table.id}
                   className={`${styles.tableGroup} ${hovered ? styles.tableHovered : ''} ${dimOthers && hoveredId !== table.id ? styles.peerFade : ''}`}
                   transform={`translate(${x}, ${y})`}
                   style={{
@@ -220,18 +221,10 @@ function TableFloorPlan({
                         ? 'pointer'
                         : 'default',
                   }}
+                  onMouseEnter={() => setHoveredId(table.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={(ev) => handleTableClick(ev, layout)}
                 >
-                  <rect
-                    className={`${styles.tableHit}`}
-                    width={w}
-                    height={h}
-                    rx={rx}
-                    fill="transparent"
-                    stroke="none"
-                    onMouseEnter={() => setHoveredId(table.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={(ev) => handleTableClick(ev, layout)}
-                  />
                   <rect
                     className={`${styles.tableShape} ${shapeClass}`}
                     width={w}

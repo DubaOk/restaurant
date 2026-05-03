@@ -4,8 +4,284 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.tabSwitch {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.tabBtn {
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.tabBtn:hover {
+  border-color: rgba(242, 208, 154, 0.3);
+  color: #f2d09a;
+}
+
+.tabBtnActive {
+  border-color: rgba(242, 208, 154, 0.5);
+  background: rgba(242, 208, 154, 0.08);
+  color: #f2d09a;
+}
+
+/* ─── Floor editor ──────────────────────────────────────────── */
+.editorLayout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.editorCanvas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.editorHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9aa3b2;
+  line-height: 1.4;
+}
+
+.emptyCanvas {
+  padding: 3rem;
+  text-align: center;
+  color: #9aa3b2;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  font-size: 0.9rem;
+}
+
+.editorSvg {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 13, 20, 0.72);
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+.editorHall {
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1.5;
+}
+
+.editorHallTitle {
+  fill: rgba(255, 255, 255, 0.22);
+  font-size: 14px;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+}
+
+.editorEntrance {
+  stroke: rgba(184, 154, 99, 0.45);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.editorEntranceLabel {
+  fill: rgba(184, 154, 99, 0.5);
+  font-size: 11px;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+}
+
+.editorTable {
+  transition: opacity 0.15s;
+}
+
+.editorTable:active {
+  cursor: grabbing;
+}
+
+.editorTableRect {
+  fill: rgba(38, 45, 60, 0.85);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.2;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+.editorTableRectSelected {
+  fill: rgba(201, 169, 98, 0.22);
+  stroke: #c9a962;
+  stroke-width: 2;
+}
+
+.editorTableRectDisabled {
+  fill: rgba(28, 32, 40, 0.7);
+  stroke: rgba(255, 255, 255, 0.1);
+}
+
+.editorTableDragging .editorTableRect {
+  fill: rgba(201, 169, 98, 0.3);
+  stroke: #f2d09a;
+}
+
+.editorTableNum {
+  fill: #f2f2f2;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.editorTableCap {
+  fill: #9aa3b2;
+  font-size: 11px;
+  font-family: inherit;
+  pointer-events: none;
+}
+
+.editorTableDisabledLabel {
+  fill: rgba(240, 168, 168, 0.55);
+  font-size: 11px;
+  font-family: inherit;
+  pointer-events: none;
+}
+
+/* ─── Editor right panel ────────────────────────────────────── */
+.editorPanel {
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(14, 18, 24, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f2d09a;
+  letter-spacing: 0.04em;
+}
+
+.panelField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.panelLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b8c0cc;
+}
+
+.panelInput {
+  padding: 0.38rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 18, 24, 0.95);
+  color: #f2f2f2;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
+.panelCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-size: 0.82rem;
+  color: #b8c0cc;
+  cursor: pointer;
+  user-select: none;
+}
+
+.panelCheck input {
+  accent-color: #c9a962;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.panelHint {
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.panelPlaceholder {
+  font-size: 0.82rem;
+  color: #9aa3b2;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.panelDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0.2rem 0;
+}
+
+.btnDanger {
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  background: transparent;
+  color: #f0a8a8;
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.btnDanger:hover {
+  background: rgba(87, 22, 22, 0.3);
+  border-color: rgba(220, 38, 38, 0.55);
+}
+
+.addGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+@media (max-width: 860px) {
+  .editorLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .editorPanel {
+    order: -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
 .title {
-  margin: 0 0 0.35rem;
+  margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.04em;

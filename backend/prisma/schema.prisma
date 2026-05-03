@@ -93,11 +93,13 @@ model RestaurantImage {
 }
 
 model Table {
-  id           Int    @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   restaurantId Int
   number       Int
   capacity     Int
   isAvailable  Boolean @default(true)
+  posX         Float?
+  posY         Float?
 
   restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   reservations Reservation[]

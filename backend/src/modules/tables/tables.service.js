@@ -43,18 +43,25 @@ const getByRestaurant = async (restaurantId, slotAtIso = null) => {
   }));
 };
 
-const pickCreateData = (body) => ({
-  restaurantId: parseInt(body.restaurantId, 10),
-  number: parseInt(body.number, 10),
-  capacity: parseInt(body.capacity, 10),
-  isAvailable: body.isAvailable === undefined ? true : Boolean(body.isAvailable),
-});
+const pickCreateData = (body) => {
+  const data = {
+    restaurantId: parseInt(body.restaurantId, 10),
+    number: parseInt(body.number, 10),
+    capacity: parseInt(body.capacity, 10),
+    isAvailable: body.isAvailable === undefined ? true : Boolean(body.isAvailable),
+  };
+  if (body.posX != null) data.posX = parseFloat(body.posX);
+  if (body.posY != null) data.posY = parseFloat(body.posY);
+  return data;
+};
 
 const pickUpdateData = (body) => {
   const data = {};
   if (body.number !== undefined) data.number = parseInt(body.number, 10);
   if (body.capacity !== undefined) data.capacity = parseInt(body.capacity, 10);
   if (body.isAvailable !== undefined) data.isAvailable = Boolean(body.isAvailable);
+  if (body.posX !== undefined) data.posX = body.posX != null ? parseFloat(body.posX) : null;
+  if (body.posY !== undefined) data.posY = body.posY != null ? parseFloat(body.posY) : null;
   return data;
 };
 
