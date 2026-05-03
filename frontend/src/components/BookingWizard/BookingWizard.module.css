@@ -449,3 +449,124 @@
     font-size: 0.72rem;
   }
 }
+
+/* ─── Bonus Section ─────────────────────────────────────── */
+.bonusSection {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bonusBalanceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bonusBalanceLabel {
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.bonusBalanceValue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #eab308;
+}
+
+.bonusToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #e8eaed;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bonusToggleCheck {
+  accent-color: #eab308;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.bonusInputRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bonusInputLabel {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  flex: 1 0 100%;
+}
+
+.bonusInput {
+  width: 90px;
+  padding: 0.35rem 0.6rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e8eaed;
+  font-size: 0.9rem;
+}
+
+.bonusInput:focus {
+  outline: none;
+  border-color: #eab308;
+}
+
+.bonusInputHint {
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.bonusEarnHint {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 0.4rem;
+  margin-top: 0.1rem;
+}
+
+.depositOld {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.bonusSaveBadge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-weight: 600;
+}
+
+/* ─── Success bonus info ────────────────────────────────── */
+.successBonusInfo {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.successBonusRow {
+  font-size: 0.85rem;
+  color: #e8eaed;
+  line-height: 1.45;
+}

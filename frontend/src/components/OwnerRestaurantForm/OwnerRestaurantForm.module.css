@@ -47,6 +47,81 @@
   box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.15);
 }
 
+/* ── City select ────────────────────────────────────────── */
+.selectWrap {
+  position: relative;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0.62rem 2.2rem 0.62rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(14, 18, 24, 0.95);
+  color: #f2f2f2;
+  font-size: 0.94rem;
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: rgba(242, 208, 154, 0.55);
+  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.15);
+}
+
+.select option {
+  background: #1a1f2b;
+  color: #f2f2f2;
+}
+
+.selectArrow {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #9aa3b2;
+  font-size: 0.9rem;
+}
+
+/* ── Address suggest ────────────────────────────────────── */
+.suggestWrap {
+  position: relative;
+}
+
+.suggestList {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem 0;
+  background: #1a1f2b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.suggestItem {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  color: #e0e4ed;
+  cursor: pointer;
+  transition: background 0.15s;
+  line-height: 1.35;
+}
+
+.suggestItem:hover {
+  background: rgba(242, 208, 154, 0.12);
+  color: #f2d09a;
+}
+
 .coordHint {
   margin: 0 0 0.35rem;
   font-size: 0.8rem;
@@ -129,10 +204,16 @@
 }
 
 .mapBlock {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 0.55rem;
+  border: 1px solid rgba(242, 208, 154, 0.2);
+  border-radius: 14px;
+  padding: 0.5rem;
   background: rgba(12, 15, 20, 0.9);
+  overflow: hidden;
+}
+
+.mapBlock :global(.ymaps-2-1-79-map),
+.mapBlock :global([class*='ymaps-']) {
+  border-radius: 10px !important;
 }
 
 .helper {
@@ -141,36 +222,114 @@
   color: #8f97a3;
 }
 
+/* ── Photos section ─────────────────────────────────────── */
+.photosSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.photosLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8c0cc;
+}
+
 .imagesRow {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: .7rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.6rem;
+  align-items: start;
 }
 
 .imageChip {
-  display: flex;
-  flex-direction: column;
-  gap: .4rem;
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  padding: .45rem;
+  overflow: hidden;
   background: rgba(18, 22, 30, 0.9);
+  aspect-ratio: 1;
 }
 
 .imageChip img {
   width: 100%;
-  height: 90px;
+  height: 100%;
   object-fit: cover;
-  border-radius: calc(var(--radius) - 4px);
+  display: block;
 }
 
-.imageChip button {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: #b8c0cc;
-  padding: .3rem .5rem;
+.imageChipNew {
+  border-color: rgba(242, 208, 154, 0.3);
+}
+
+.imageChipRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #f2f2f2;
+  font-size: 0.7rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.imageChipRemove:hover {
+  background: rgba(220, 38, 38, 0.8);
+}
+
+.imageChipNewBadge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  background: rgba(234, 179, 8, 0.85);
+  color: #141820;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.addPhotoBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 1;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 90px;
+}
+
+.addPhotoBtn:hover {
+  border-color: rgba(242, 208, 154, 0.4);
+  background: rgba(242, 208, 154, 0.05);
+}
+
+.addPhotoPlus {
+  font-size: 1.6rem;
+  color: #9aa3b2;
+  line-height: 1;
+}
+
+.addPhotoText {
+  font-size: 0.72rem;
+  color: #9aa3b2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }

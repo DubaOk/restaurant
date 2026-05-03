@@ -58,4 +58,12 @@ const updateProfile = async (userId, { name, phone }) => {
   return sanitizeUser(user);
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+const updateAvatar = async (userId, avatarUrl) => {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl },
+  });
+  return sanitizeUser(user);
+};
+
+module.exports = { register, login, getProfile, updateProfile, updateAvatar };

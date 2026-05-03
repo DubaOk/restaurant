@@ -2,7 +2,11 @@ const promotionsService = require('./promotions.service');
 
 const getByRestaurant = async (req, res, next) => {
   try {
-    const promotions = await promotionsService.getByRestaurant(parseInt(req.params.restaurantId));
+    const onlyActive = req.query.all !== 'true';
+    const promotions = await promotionsService.getByRestaurant(
+      parseInt(req.params.restaurantId),
+      { onlyActive }
+    );
     res.json({ success: true, data: promotions });
   } catch (err) {
     next(err);

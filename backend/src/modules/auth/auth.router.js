@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { body } = require('express-validator');
 const { authenticate } = require('../../middlewares/auth.middleware');
+const { uploadUserAvatar } = require('../../middlewares/upload.middleware');
 const controller = require('./auth.controller');
 
 const registerRules = [
@@ -19,5 +20,6 @@ router.post('/register', registerRules, controller.register);
 router.post('/login', loginRules, controller.login);
 router.get('/me', authenticate, controller.getProfile);
 router.put('/me', authenticate, controller.updateProfile);
+router.patch('/me/avatar', authenticate, uploadUserAvatar.single('avatar'), controller.updateAvatar);
 
 module.exports = router;

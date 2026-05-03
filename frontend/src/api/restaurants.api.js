@@ -34,10 +34,12 @@ const buildRestaurantFormData = (data = {}) => {
   return formData;
 };
 
+const multipartConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
+
 export const restaurantsApi = {
   getAll: (params) => api.get('/restaurants', { params }),
   getById: (id) => api.get(`/restaurants/${id}`),
-  create: (data) => api.post('/restaurants', buildRestaurantFormData(data)),
-  update: (id, data) => api.put(`/restaurants/${id}`, buildRestaurantFormData(data)),
+  create: (data) => api.post('/restaurants', buildRestaurantFormData(data), multipartConfig),
+  update: (id, data) => api.put(`/restaurants/${id}`, buildRestaurantFormData(data), multipartConfig),
   remove: (id) => api.delete(`/restaurants/${id}`),
 };

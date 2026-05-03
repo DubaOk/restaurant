@@ -4,19 +4,21 @@ const multer = require('multer');
 
 const uploadsRoot = path.join(process.cwd(), 'uploads');
 const restaurantsDir = path.join(uploadsRoot, 'restaurants');
+const avatarsDir = path.join(uploadsRoot, 'avatars');
 
-if (!fs.existsSync(restaurantsDir)) {
-  fs.mkdirSync(restaurantsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, restaurantsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    const safeExt = ext || '.jpg';
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
-  },
+[restaurantsDir, avatarsDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
+
+const makeStorage = (dir) =>
+  multer.diskStorage({
+    destination: (req, file, cb) => cb(null, dir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase();
+      const safeExt = ext || '.jpg';
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
+    },
+  });
 
 const imageFilter = (req, file, cb) => {
   if (file.mimetype?.startsWith('image/')) {
@@ -27,9 +29,15 @@ const imageFilter = (req, file, cb) => {
 };
 
 const uploadRestaurantImages = multer({
-  storage,
+  storage: makeStorage(restaurantsDir),
   fileFilter: imageFilter,
   limits: { files: 10, fileSize: 5 * 1024 * 1024 },
 });
 
-module.exports = { uploadRestaurantImages };
+const uploadUserAvatar = multer({
+  storage: makeStorage(avatarsDir),
+  fileFilter: imageFilter,
+  limits: { files: 1, fileSize: 3 * 1024 * 1024 },
+});
+
+module.exports = { uploadRestaurantImages, uploadUserAvatar };

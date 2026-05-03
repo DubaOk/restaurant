@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../api/auth.api';
@@ -19,12 +19,9 @@ const ProfilePage = () => {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
 
-  const [spendAmount, setSpendAmount] = useState('');
-  const [spendDesc, setSpendDesc] = useState('');
-  const [spendError, setSpendError] = useState('');
-  const [spendSuccess, setSpendSuccess] = useState('');
-  const [spending, setSpending] = useState(false);
   const [establishmentCount, setEstablishmentCount] = useState(null);
   const [ownerPlaces, setOwnerPlaces] = useState([]);
 
@@ -82,31 +79,18 @@ const ProfilePage = () => {
     }
   };
 
-  const handleSpend = async (e) => {
-    e.preventDefault();
-    const amount = parseInt(spendAmount, 10);
-    if (!amount || amount <= 0) {
-      setSpendError('Введите корректное количество баллов');
-      return;
-    }
-    if (amount > bonuses) {
-      setSpendError('Недостаточно бонусов на счёте');
-      return;
-    }
-    setSpending(true);
-    setSpendError('');
-    setSpendSuccess('');
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
     try {
-      await bonusesApi.spend(amount, spendDesc || 'Списание бонусов');
-      setBonuses((prev) => prev - amount);
-      bonusesApi.getMyTransactions().then(({ data }) => setTransactions(data.data));
-      setSpendSuccess(`Списано ${amount} бонусов`);
-      setSpendAmount('');
-      setSpendDesc('');
-    } catch (err) {
-      setSpendError(err.response?.data?.message || 'Ошибка списания');
+      const { data } = await authApi.updateAvatar(file);
+      updateUser(data.data);
+    } catch {
+      /* silent */
     } finally {
-      setSpending(false);
+      setAvatarUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -118,6 +102,37 @@ const ProfilePage = () => {
       /* silent */
     }
   };
+
+  const initials = user?.name
+    ? user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    : '?';
+
+  const avatarBlock = (
+    <div className={styles.avatarBlock}>
+      <div
+        className={styles.avatarCircle}
+        onClick={() => avatarInputRef.current?.click()}
+        title="Сменить фото"
+      >
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="avatar" className={styles.avatarImg} />
+        ) : (
+          <span className={styles.avatarInitials}>{initials}</span>
+        )}
+        <div className={styles.avatarOverlay}>
+          {avatarUploading ? '…' : '📷'}
+        </div>
+      </div>
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleAvatarChange}
+      />
+      <p className={styles.avatarHint}>Нажмите, чтобы загрузить фото</p>
+    </div>
+  );
 
   return (
     <>
@@ -170,6 +185,7 @@ const ProfilePage = () => {
 
               <section className={styles.card}>
                 <h2>Контакты и учётная запись</h2>
+                {avatarBlock}
 
                 {success && <p className={styles.success}>{success}</p>}
                 {error && <p className={styles.error}>{error}</p>}
@@ -239,6 +255,7 @@ const ProfilePage = () => {
 
             <section className={styles.card}>
               <h2>Контакты и учётная запись</h2>
+              {avatarBlock}
 
               {success && <p className={styles.success}>{success}</p>}
               {error && <p className={styles.error}>{error}</p>}
@@ -268,39 +285,18 @@ const ProfilePage = () => {
 
             {user?.role === 'CLIENT' && (
               <section className={styles.card}>
-                <h2>Бонусный счёт гостя</h2>
-                <p className={styles.balance}>
-                  {bonuses !== null ? `${bonuses} бонусов` : 'Загрузка...'}
+                <h2>Бонусный счёт</h2>
+                <div className={styles.bonusBalanceBlock}>
+                  <span className={styles.bonusBalanceBig}>
+                    {bonuses !== null ? bonuses : '…'}
+                  </span>
+                  <span className={styles.bonusBalanceUnit}>бонусов</span>
+                </div>
+                <p className={styles.bonusHint}>
+                  Бонусы начисляются при подтверждении посещения (10% от депозита) и могут использоваться при следующем бронировании.
                 </p>
 
-                <form onSubmit={handleSpend} className={styles.spendForm}>
-                  <h3 className={styles.spendTitle}>Списать бонусы</h3>
-                  {spendError && <p className={styles.error}>{spendError}</p>}
-                  {spendSuccess && <p className={styles.success}>{spendSuccess}</p>}
-                  <div className={styles.spendRow}>
-                    <input
-                      type="number"
-                      className={styles.spendInput}
-                      placeholder="Количество"
-                      min={1}
-                      max={bonuses || 0}
-                      value={spendAmount}
-                      onChange={(e) => setSpendAmount(e.target.value)}
-                    />
-                    <input
-                      type="text"
-                      className={styles.spendInput}
-                      placeholder="Описание (необязательно)"
-                      value={spendDesc}
-                      onChange={(e) => setSpendDesc(e.target.value)}
-                    />
-                    <button type="submit" className={styles.spendBtn} disabled={spending || bonuses === 0}>
-                      {spending ? '...' : 'Списать'}
-                    </button>
-                  </div>
-                </form>
-
-                <h3>История транзакций</h3>
+                <h3 className={styles.txTitle}>История транзакций</h3>
                 {transactions.length === 0 ? (
                   <p className={styles.empty}>Транзакций пока нет</p>
                 ) : (

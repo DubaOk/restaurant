@@ -7,6 +7,13 @@ const EMPTY_PROMO = { title: '', description: '', startDate: '', endDate: '' };
 
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('ru-RU') : '—');
 const toInputDate = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : '');
+const isExpired = (promo) => promo.endDate && new Date(promo.endDate) < new Date();
+const validateDates = (startDate, endDate) => {
+  if (startDate && endDate && endDate < startDate) {
+    return 'Дата окончания не может быть раньше даты начала';
+  }
+  return null;
+};
 
 const OwnerPromotionsManager = ({ restaurantId }) => {
   const [promos, setPromos] = useState([]);
@@ -22,7 +29,7 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
   useEffect(() => {
     setLoading(true);
     promotionsApi
-      .getByRestaurant(restaurantId)
+      .getByRestaurantAll(restaurantId)
       .then(({ data }) => setPromos(data.data))
       .catch(() => setError('Не удалось загрузить акции'))
       .finally(() => setLoading(false));
@@ -39,6 +46,8 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
   };
 
   const handleSave = async (id) => {
+    const dateErr = validateDates(editForm.startDate, editForm.endDate);
+    if (dateErr) { setError(dateErr); return; }
     setSaving(true);
     try {
       const payload = {
@@ -50,8 +59,9 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
       const { data } = await promotionsApi.update(id, payload);
       setPromos((prev) => prev.map((p) => (p.id === id ? data.data : p)));
       setEditingId(null);
-    } catch {
-      /* silent */
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Ошибка сохранения');
     } finally {
       setSaving(false);
     }
@@ -73,6 +83,8 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    const dateErr = validateDates(newPromo.startDate, newPromo.endDate);
+    if (dateErr) { setError(dateErr); return; }
     setAdding(true);
     try {
       const payload = {
@@ -85,8 +97,9 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
       const { data } = await promotionsApi.create(payload);
       setPromos((prev) => [data.data, ...prev]);
       setNewPromo(EMPTY_PROMO);
-    } catch {
-      /* silent */
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Ошибка создания акции');
     } finally {
       setAdding(false);
     }
@@ -156,7 +169,12 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
             ) : (
               <>
                 <div className={styles.promoInfo}>
-                  <span className={styles.promoTitle}>{promo.title}</span>
+                  <div className={styles.promoTitleRow}>
+                    <span className={styles.promoTitle}>{promo.title}</span>
+                    {isExpired(promo) && (
+                      <span className={styles.expiredBadge}>Истекла</span>
+                    )}
+                  </div>
                   <span className={styles.promoDesc}>{promo.description}</span>
                   <span className={styles.promoDates}>
                     {fmtDate(promo.startDate)} — {fmtDate(promo.endDate)}

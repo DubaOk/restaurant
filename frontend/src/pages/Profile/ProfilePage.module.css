@@ -595,3 +595,101 @@
     padding: 1.5rem 1rem 2.5rem;
   }
 }
+
+/* ── Avatar ───────────────────────────────────────────── */
+.avatarBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.avatarCircle {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  border: 2px solid rgba(242, 208, 154, 0.35);
+  background: rgba(30, 36, 48, 0.9);
+  flex-shrink: 0;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarInitials {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f2d09a;
+  letter-spacing: 0.02em;
+}
+
+.avatarOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatarCircle:hover .avatarOverlay {
+  opacity: 1;
+}
+
+.avatarHint {
+  font-size: 0.72rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* ── Bonus balance (no spending form) ─────────────────── */
+.bonusBalanceBlock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.bonusBalanceBig {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #eab308;
+  line-height: 1;
+}
+
+.bonusBalanceUnit {
+  font-size: 1rem;
+  color: #9ca3af;
+}
+
+.bonusHint {
+  font-size: 0.8rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.txTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa3b2;
+  margin-bottom: 0.5rem;
+}

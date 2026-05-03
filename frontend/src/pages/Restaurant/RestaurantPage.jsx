@@ -13,18 +13,7 @@ import BookingWizard from '../../components/BookingWizard/BookingWizard';
 import PromotionList from '../../components/PromotionList/PromotionList';
 import styles from './RestaurantPage.module.css';
 
-const defaultTeam = [
-  {
-    name: 'Борис Зарьков',
-    role: 'ресторатор',
-    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=240&q=80',
-  },
-  {
-    name: 'Владимир Мухин',
-    role: 'бренд-шеф',
-    avatar: 'https://images.unsplash.com/photo-1581299894341-367e31d4af37?auto=format&fit=crop&w=240&q=80',
-  },
-];
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1581299894341-367e31d4af37?auto=format&fit=crop&w=240&q=80';
 
 const cuisineRecommendations = {
   'Европейская кухня': {
@@ -164,7 +153,6 @@ const RestaurantPage = () => {
   if (!restaurant) return null;
   const gallery = buildGallery(restaurant);
   const recs = getRecommendations(restaurant, promotions);
-  const team = defaultTeam;
 
   return (
     <>
@@ -216,17 +204,25 @@ const RestaurantPage = () => {
             </div>
           </section>
 
-          <section className={styles.teamSection}>
-            {team.map((member) => (
-              <article key={member.name} className={styles.person}>
-                <img src={member.avatar} alt={member.name} className={styles.personAvatar} />
+          {restaurant.owner && (
+            <section className={styles.teamSection}>
+              <article className={styles.person}>
+                <div className={styles.personAvatarWrap}>
+                  {restaurant.owner.avatarUrl ? (
+                    <img src={restaurant.owner.avatarUrl} alt={restaurant.owner.name} className={styles.personAvatar} />
+                  ) : (
+                    <div className={styles.personAvatarFallback}>
+                      {restaurant.owner.name?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
                 <div className={styles.personInfo}>
-                  <p className={styles.personName}>{member.name} <span>→</span></p>
-                  <p className={styles.personRole}>{member.role}</p>
+                  <p className={styles.personName}>{restaurant.owner.name}</p>
+                  <p className={styles.personRole}>Ресторатор</p>
                 </div>
               </article>
-            ))}
-          </section>
+            </section>
+          )}
 
           <section className={styles.recommendations}>
             <div className={styles.recCol}>

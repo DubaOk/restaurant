@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { reservationsApi } from '../../api/reservations.api';
 import { tablesApi } from '../../api/tables.api';
+import { bonusesApi } from '../../api/bonuses.api';
+import { useAuth } from '../../context/AuthContext';
 import TableFloorPlan, { pickStatus, canPreselectBookingTable } from '../TableFloorPlan/TableFloorPlan';
 import styles from './BookingWizard.module.css';
 
@@ -17,7 +19,10 @@ function pluralGuests(n) {
   return 'гостей';
 }
 
+const Byn = () => <i className="nbrb-icon">BYN</i>;
+
 const BookingWizard = ({ restaurantId, restaurantName }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
 
   const [date, setDate] = useState('');
@@ -32,6 +37,11 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [successInfo, setSuccessInfo] = useState(null);
+
+  const [bonusBalance, setBonusBalance] = useState(0);
+  const [useBonuses, setUseBonuses] = useState(false);
+  const [bonusesToSpend, setBonusesToSpend] = useState(0);
 
   const dateTimeStr = date && time ? `${date}T${time}` : '';
 
@@ -45,6 +55,16 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
     [guestsCount]
   );
 
+  const effectiveDeposit = useBonuses ? Math.max(0, depositPreview - bonusesToSpend) : depositPreview;
+  const bonusEarnPreview = Math.max(1, Math.round(depositPreview * 0.1));
+
+  useEffect(() => {
+    if (user?.role !== 'CLIENT') return;
+    bonusesApi.getMyBalance()
+      .then(({ data }) => setBonusBalance(data.data.balance))
+      .catch(() => {});
+  }, [user]);
+
   useEffect(() => {
     if (!selectedTableId) return;
     const t = tables.find((x) => x.id === selectedTableId);
@@ -52,6 +72,17 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
       setSelectedTableId(null);
     }
   }, [guestsCount, tables, selectedTableId]);
+
+  const maxBonusesUsable = Math.min(bonusBalance, depositPreview);
+
+  const toggleUseBonuses = () => {
+    if (!useBonuses) {
+      setBonusesToSpend(maxBonusesUsable);
+    } else {
+      setBonusesToSpend(0);
+    }
+    setUseBonuses((p) => !p);
+  };
 
   const step1Valid = Boolean(date && time);
 
@@ -84,12 +115,22 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
     setError('');
     setLoading(true);
     try {
-      await reservationsApi.create({
+      const payload = {
         restaurantId: parseInt(restaurantId, 10),
         tableId: selectedTableId,
         date: new Date(dateTimeStr).toISOString(),
         guestsCount,
         comment,
+      };
+      if (useBonuses && bonusesToSpend > 0) {
+        payload.bonusesToSpend = bonusesToSpend;
+      }
+      const { data } = await reservationsApi.create(payload);
+      const info = data.data || {};
+      setSuccessInfo({
+        bonusesUsed: info.bonusesUsed || 0,
+        finalDeposit: info.finalDeposit ?? depositPreview,
+        bonusEarnPreview,
       });
       setSuccess(true);
     } catch (err) {
@@ -108,7 +149,10 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
     setComment('');
     setError('');
     setSuccess(false);
+    setSuccessInfo(null);
     setLoading(false);
+    setUseBonuses(false);
+    setBonusesToSpend(0);
   };
 
   if (success) {
@@ -119,6 +163,20 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
         <p className={styles.successText}>
           Ресторан подтвердит бронирование в ближайшее время. Следите за статусом в разделе «Мои бронирования».
         </p>
+        {successInfo && (
+          <div className={styles.successBonusInfo}>
+            {successInfo.bonusesUsed > 0 && (
+              <p className={styles.successBonusRow}>
+                🎁 Списано бонусов: <strong>{successInfo.bonusesUsed}</strong> — депозит снижен до{' '}
+                <strong>{successInfo.finalDeposit} <Byn /></strong>
+              </p>
+            )}
+            <p className={styles.successBonusRow}>
+              ⭐ После подтверждения посещения вам начислится{' '}
+              <strong>~{successInfo.bonusEarnPreview} бонусов</strong>
+            </p>
+          </div>
+        )}
         <button className={styles.btnOutline} onClick={reset}>
           Забронировать ещё
         </button>
@@ -287,8 +345,60 @@ const BookingWizard = ({ restaurantId, restaurantName }) => {
                 №{selectedTable?.number} · до {selectedTable?.capacity} мест
               </span>
               <span className={styles.summaryLabel}>Депозит</span>
-              <span className={styles.summaryValue}>{depositPreview} BYN</span>
+              <span className={styles.summaryValue}>
+                {useBonuses && bonusesToSpend > 0 ? (
+                  <>
+                    <s className={styles.depositOld}>{depositPreview}</s>{' '}
+                    <strong>{effectiveDeposit}</strong> <Byn />
+                    <span className={styles.bonusSaveBadge}>−{bonusesToSpend} бонусов</span>
+                  </>
+                ) : (
+                  <>{depositPreview} <Byn /></>
+                )}
+              </span>
             </div>
+
+            {bonusBalance > 0 && (
+              <div className={styles.bonusSection}>
+                <div className={styles.bonusBalanceRow}>
+                  <span className={styles.bonusBalanceLabel}>Ваш бонусный счёт:</span>
+                  <span className={styles.bonusBalanceValue}>{bonusBalance} бонусов</span>
+                </div>
+                <label className={styles.bonusToggleLabel}>
+                  <input
+                    type="checkbox"
+                    className={styles.bonusToggleCheck}
+                    checked={useBonuses}
+                    onChange={toggleUseBonuses}
+                  />
+                  Списать бонусы в счёт депозита
+                </label>
+                {useBonuses && (
+                  <div className={styles.bonusInputRow}>
+                    <label className={styles.bonusInputLabel}>
+                      Сколько списать (макс. {maxBonusesUsable})
+                    </label>
+                    <input
+                      type="number"
+                      className={styles.bonusInput}
+                      value={bonusesToSpend}
+                      min={0}
+                      max={maxBonusesUsable}
+                      onChange={(e) =>
+                        setBonusesToSpend(
+                          Math.min(Math.max(0, parseInt(e.target.value) || 0), maxBonusesUsable)
+                        )
+                      }
+                    />
+                    <span className={styles.bonusInputHint}>1 балл = 1 <Byn /></span>
+                  </div>
+                )}
+                <p className={styles.bonusEarnHint}>
+                  ⭐ После посещения начислится ~{bonusEarnPreview} бонусов (10% от депозита)
+                </p>
+              </div>
+            )}
+
             <p className={styles.summaryNote}>
               Точная сумма и способ предоплаты уточняются после подтверждения рестораном.
             </p>

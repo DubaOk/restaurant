@@ -27,9 +27,14 @@ const getRestaurantReservations = async (restaurantId, ownerId) => {
   });
 };
 
-const create = async (userId, { restaurantId, tableId, date, guestsCount, comment }) => {
+const DEPOSIT_PER_GUEST = 25;
+
+const calcDeposit = (guestsCount) => Math.max(DEPOSIT_PER_GUEST, guestsCount * DEPOSIT_PER_GUEST);
+
+const create = async (userId, { restaurantId, tableId, date, guestsCount, comment, bonusesToSpend }) => {
   const table = await prisma.table.findFirst({
     where: { id: tableId, restaurantId },
+    include: { restaurant: { select: { name: true } } },
   });
   if (!table) throw ApiError.notFound('Столик не найден в этом ресторане');
   if (table.capacity < guestsCount)
@@ -47,10 +52,27 @@ const create = async (userId, { restaurantId, tableId, date, guestsCount, commen
   });
   if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
 
-  return prisma.reservation.create({
-    data: { userId, restaurantId, tableId, date: new Date(date), guestsCount, comment },
+  const depositAmount = calcDeposit(guestsCount);
+  let bonusesUsed = 0;
+
+  if (bonusesToSpend && bonusesToSpend > 0) {
+    const { balance } = await bonusesService.getBalance(userId);
+    bonusesUsed = Math.min(Math.floor(bonusesToSpend), balance, depositAmount);
+    if (bonusesUsed > 0) {
+      await bonusesService.spend(
+        userId,
+        bonusesUsed,
+        `Оплата части депозита в "${table.restaurant.name}" бонусами`
+      );
+    }
+  }
+
+  const reservation = await prisma.reservation.create({
+    data: { userId, restaurantId, tableId, date: new Date(date), guestsCount, comment, bonusesUsed },
     include: RESERVATION_INCLUDE,
   });
+
+  return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed };
 };
 
 const update = async (id, userId, { date, guestsCount, tableId }) => {
@@ -113,11 +135,21 @@ const cancel = async (id, userId, role) => {
   if (!['PENDING', 'CONFIRMED'].includes(reservation.status))
     throw ApiError.badRequest('Нельзя отменить это бронирование');
 
-  return prisma.reservation.update({
+  const cancelled = await prisma.reservation.update({
     where: { id },
     data: { status: 'CANCELLED' },
-    include: RESERVATION_INCLUDE,
+    include: { ...RESERVATION_INCLUDE, restaurant: { select: { id: true, name: true, address: true } } },
   });
+
+  if (reservation.bonusesUsed > 0) {
+    await bonusesService.earn(
+      reservation.userId,
+      reservation.bonusesUsed,
+      `Возврат бонусов за отмену бронирования в "${cancelled.restaurant?.name}"`
+    );
+  }
+
+  return cancelled;
 };
 
 const confirm = async (id, ownerId) => {
@@ -135,10 +167,12 @@ const confirm = async (id, ownerId) => {
     include: RESERVATION_INCLUDE,
   });
 
+  const depositAmount = calcDeposit(reservation.guestsCount);
+  const bonusEarned = Math.max(1, Math.round(depositAmount * 0.1));
   await bonusesService.earn(
     reservation.userId,
-    50,
-    `Бонусы за бронирование в "${reservation.restaurant.name}"`
+    bonusEarned,
+    `Бонусы за посещение "${reservation.restaurant.name}" (10% от депозита ${depositAmount} р.)`
   );
 
   return updated;

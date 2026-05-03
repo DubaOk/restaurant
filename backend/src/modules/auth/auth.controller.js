@@ -44,4 +44,15 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+const updateAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) return next(new Error('Файл не загружен'));
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    const user = await authService.updateAvatar(req.user.id, avatarUrl);
+    res.json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile, updateAvatar };

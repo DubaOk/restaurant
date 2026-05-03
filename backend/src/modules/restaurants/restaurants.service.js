@@ -46,12 +46,12 @@ const normalizeRestaurant = (restaurant) => {
 };
 
 const includeRestaurantRelations = {
-  owner: { select: { id: true, name: true } },
+  owner: { select: { id: true, name: true, avatarUrl: true } },
   images: { orderBy: { sortOrder: 'asc' } },
 };
 
 const includeRestaurantRelationsFallback = {
-  owner: { select: { id: true, name: true } },
+  owner: { select: { id: true, name: true, avatarUrl: true } },
 };
 
 const getAll = async ({

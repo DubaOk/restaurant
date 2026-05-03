@@ -321,8 +321,8 @@ const RestaurantsPage = () => {
         <section className={styles.page}>
           <header className={`${styles.hero} ${styles.staged}`} style={{ animationDelay: '40ms' }}>
             <p className={styles.kicker}>{APP_NAME.toUpperCase()} · ПО ВСЕЙ БЕЛАРУСИ</p>
-            <h1>РЕСТОРАНЫ И ЗАВЕДЕНИЯ РБ</h1>
-            <p className={styles.subtitle}>{APP_TAGLINE}: витрина, сетка и карта зала в одном интерфейсе.</p>
+            <h1>РЕСТОРАНЫ И ЗАВЕДЕНИЯ</h1>
+            <p className={styles.subtitle}>{APP_TAGLINE}</p>
             <div className={styles.heroCityRow}>
               <label className={styles.heroCityLabel}>
                 Город

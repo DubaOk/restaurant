@@ -7,14 +7,24 @@ const assertOwner = async (restaurantId, ownerId) => {
   if (restaurant.ownerId !== ownerId) throw ApiError.forbidden('Нет прав');
 };
 
-const getByRestaurant = async (restaurantId) =>
-  prisma.promotion.findMany({
-    where: { restaurantId },
-    orderBy: { createdAt: 'desc' },
-  });
+const validateDates = (startDate, endDate) => {
+  if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+    throw ApiError.badRequest('Дата окончания не может быть раньше даты начала');
+  }
+};
+
+const getByRestaurant = async (restaurantId, { onlyActive = false } = {}) => {
+  const where = { restaurantId };
+  if (onlyActive) {
+    const now = new Date();
+    where.OR = [{ endDate: null }, { endDate: { gte: now } }];
+  }
+  return prisma.promotion.findMany({ where, orderBy: { createdAt: 'desc' } });
+};
 
 const create = async (ownerId, data) => {
   await assertOwner(data.restaurantId, ownerId);
+  validateDates(data.startDate, data.endDate);
   return prisma.promotion.create({ data });
 };
 
@@ -22,6 +32,9 @@ const update = async (id, ownerId, data) => {
   const promo = await prisma.promotion.findUnique({ where: { id }, include: { restaurant: true } });
   if (!promo) throw ApiError.notFound('Акция не найдена');
   if (promo.restaurant.ownerId !== ownerId) throw ApiError.forbidden('Нет прав');
+  const effectiveStart = data.startDate !== undefined ? data.startDate : promo.startDate;
+  const effectiveEnd = data.endDate !== undefined ? data.endDate : promo.endDate;
+  validateDates(effectiveStart, effectiveEnd);
   return prisma.promotion.update({ where: { id }, data });
 };
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { YMaps, Map, Placemark } from '@pbe/react-yandex-maps';
 import { restaurantsApi } from '../../api/restaurants.api';
 import { BELARUS_CITY_NAMES, getCityMapCenter } from '../../constants/belarusCities';
@@ -20,11 +20,32 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   });
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const [newPreviews, setNewPreviews] = useState([]);
   const [manualPointEnabled, setManualPointEnabled] = useState(false);
   const [manualPoint, setManualPoint] = useState(null);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // address autocomplete
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestTimer = useRef(null);
+  const ymapsRef = useRef(null);
+
+  const fileInputRef = useRef(null);
+
+  // Wait for ymaps.ready() — ensures suggest/geocode modules are available
+  useEffect(() => {
+    const tryInit = () => {
+      if (window.ymaps?.ready) {
+        window.ymaps.ready(() => { ymapsRef.current = window.ymaps; });
+      } else {
+        setTimeout(tryInit, 100);
+      }
+    };
+    tryInit();
+  }, []);
 
   useEffect(() => {
     if (restaurant) {
@@ -46,19 +67,12 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       }
       setManualPointEnabled(false);
       setNewImages([]);
+      setNewPreviews([]);
     } else {
-      setForm({
-        name: '',
-        description: '',
-        city: 'Минск',
-        address: '',
-        cuisine: '',
-        phone: '',
-        openTime: '',
-        closeTime: '',
-      });
+      setForm({ name: '', description: '', city: 'Минск', address: '', cuisine: '', phone: '', openTime: '', closeTime: '' });
       setExistingImages([]);
       setNewImages([]);
+      setNewPreviews([]);
       setManualPoint([...getCityMapCenter('Минск')]);
       setManualPointEnabled(false);
     }
@@ -73,25 +87,93 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleFilesChange = (e) => {
+  // ── address suggest ───────────────────────────────────────
+  const handleAddressInput = (e) => {
+    const value = e.target.value;
+    const citySnapshot = form.city;
+    setForm((prev) => ({ ...prev, address: value }));
+    clearTimeout(suggestTimer.current);
+    if (!value.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    suggestTimer.current = setTimeout(() => {
+      const ym = ymapsRef.current;
+      if (!ym?.suggest) return;
+      ym.suggest(`Беларусь, ${citySnapshot}, ${value}`, {
+        results: 7,
+        boundedBy: [[51.2, 23.2], [56.2, 32.8]],
+        strictBounds: false,
+      }).then((results) => {
+        setSuggestions(results || []);
+        setShowSuggestions((results || []).length > 0);
+      }).catch(() => setSuggestions([]));
+    }, 350);
+  };
+
+  const handleSuggestionPick = (suggestion) => {
+    setShowSuggestions(false);
+    setSuggestions([]);
+    const displayValue = suggestion.displayName || suggestion.value || '';
+    setForm((prev) => ({ ...prev, address: displayValue }));
+    const ym = ymapsRef.current;
+    if (!ym?.geocode) return;
+    ym.geocode(suggestion.value, { results: 1 }).then((geoResult) => {
+      const obj = geoResult.geoObjects.get(0);
+      if (obj) {
+        setManualPoint(obj.geometry.getCoordinates());
+        setManualPointEnabled(true);
+      }
+    }).catch(() => {});
+  };
+
+  // ── map click → reverse geocode ───────────────────────────
+  const handleMapClick = (event) => {
+    const coords = event.get('coords');
+    setManualPoint(coords);
+    setManualPointEnabled(true);
+    const ym = ymapsRef.current;
+    if (!ym?.geocode) return;
+    ym.geocode(coords, { results: 1 }).then((result) => {
+      const obj = result.geoObjects.get(0);
+      if (obj) {
+        const addr = obj.getAddressLine();
+        const clean = addr
+          .replace(/^(Беларусь|Belarus|Белоруссия),?\s*/i, '')
+          .replace(/^\d{6},?\s*/, '')
+          .trim();
+        setForm((prev) => ({ ...prev, address: clean }));
+      }
+    }).catch(() => {});
+  };
+
+  // ── file upload ───────────────────────────────────────────
+  const handleFilesAdd = (e) => {
     const selected = Array.from(e.target.files || []);
-    setNewImages(selected);
+    if (!selected.length) return;
+    setNewImages((prev) => [...prev, ...selected]);
+    const previews = selected.map((f) => URL.createObjectURL(f));
+    setNewPreviews((prev) => [...prev, ...previews]);
+    e.target.value = '';
+  };
+
+  const removeNewImage = (idx) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== idx));
+    setNewPreviews((prev) => {
+      URL.revokeObjectURL(prev[idx]);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   const mapState = useMemo(() => {
     const center = manualPoint || getCityMapCenter(form.city);
-    return {
-      center,
-      zoom: manualPoint ? 14 : 11,
-      controls: [],
-    };
+    return { center, zoom: manualPoint ? 14 : 11, controls: [] };
   }, [manualPoint, form.city]);
 
   const mapQuery = useMemo(() => {
-    const query = { lang: 'ru_RU' };
-    if (YANDEX_MAPS_API_KEY) {
-      query.apikey = YANDEX_MAPS_API_KEY;
-    }
+    const query = { lang: 'ru_RU', load: 'package.full' };
+    if (YANDEX_MAPS_API_KEY) query.apikey = YANDEX_MAPS_API_KEY;
     return query;
   }, []);
 
@@ -100,8 +182,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
     setSaving(true);
     setError('');
     setSuccess('');
-    const hasCoords =
-      manualPoint && Number.isFinite(manualPoint[0]) && Number.isFinite(manualPoint[1]);
+    const hasCoords = manualPoint && Number.isFinite(manualPoint[0]) && Number.isFinite(manualPoint[1]);
     const shouldSendCoords = hasCoords && (manualPointEnabled || !isEdit);
     const payload = {
       ...form,
@@ -120,20 +201,20 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
       onSaved(res.data.data);
       setExistingImages((res.data.data.images || []).map((img) => img.url));
       setNewImages([]);
+      setNewPreviews([]);
       setManualPointEnabled(false);
       setSuccess(isEdit ? 'Карточка обновлена' : 'Заведение добавлено в гид');
     } catch (err) {
       const message = err.response?.data?.message || 'Ошибка сохранения';
       setError(message);
-      if (message.includes('координаты')) {
-        setManualPointEnabled(true);
-      }
+      if (message.includes('координаты')) setManualPointEnabled(true);
     } finally {
       setSaving(false);
     }
   };
 
   return (
+    <YMaps version="2.1" query={mapQuery}>
     <form onSubmit={handleSubmit} className={styles.form}>
       <h2>{isEdit ? 'Карточка заведения' : 'Новое заведение в гиде'}</h2>
 
@@ -151,17 +232,38 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
         </div>
         <div className={styles.field}>
           <label>Город *</label>
-          <select name="city" value={form.city} onChange={handleChange} required>
-            {BELARUS_CITY_NAMES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div className={styles.selectWrap}>
+            <select name="city" value={form.city} onChange={handleChange} required className={styles.select}>
+              {BELARUS_CITY_NAMES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <span className={styles.selectArrow}>▾</span>
+          </div>
         </div>
         <div className={styles.field}>
           <label>Адрес заведения *</label>
-          <input name="address" value={form.address} onChange={handleChange} required placeholder="ул. Ленина, 1" />
+          <div className={styles.suggestWrap}>
+            <input
+              name="address"
+              value={form.address}
+              onChange={handleAddressInput}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              required
+              placeholder="ул. Ленина, 1"
+              autoComplete="off"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul className={styles.suggestList}>
+                {suggestions.map((s, i) => (
+                  <li key={i} className={styles.suggestItem} onMouseDown={() => handleSuggestionPick(s)}>
+                    {s.displayName || s.value}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
         <div className={styles.field}>
           <label>Телефон</label>
@@ -175,66 +277,93 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
           <label>Последний приём гостей</label>
           <input name="closeTime" value={form.closeTime} onChange={handleChange} placeholder="23:00" />
         </div>
-        <div className={styles.field}>
-          <label>Фото интерьера / зала</label>
-          <input type="file" multiple accept="image/*" onChange={handleFilesChange} />
-          {newImages.length > 0 && (
-            <p className={styles.helper}>Выбрано новых файлов: {newImages.length}</p>
-          )}
-        </div>
       </div>
 
-      {existingImages.length > 0 && (
-        <div className={styles.field}>
-          <label>Текущие фото</label>
-          <div className={styles.imagesRow}>
-            {existingImages.map((url) => (
-              <div key={url} className={styles.imageChip}>
-                <img src={url} alt="restaurant" />
-                <button
-                  type="button"
-                  onClick={() => setExistingImages((prev) => prev.filter((item) => item !== url))}
-                >
-                  Удалить
-                </button>
-              </div>
-            ))}
-          </div>
+      {/* ── Photos ───────────────────────────────────────── */}
+      <div className={styles.photosSection}>
+        <span className={styles.photosLabel}>Фото интерьера / зала</span>
+        <div className={styles.imagesRow}>
+          {existingImages.map((url) => (
+            <div key={url} className={styles.imageChip}>
+              <img src={url} alt="restaurant" />
+              <button
+                type="button"
+                className={styles.imageChipRemove}
+                onClick={() => setExistingImages((prev) => prev.filter((item) => item !== url))}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {newPreviews.map((src, idx) => (
+            <div key={src} className={`${styles.imageChip} ${styles.imageChipNew}`}>
+              <img src={src} alt="new" />
+              <button type="button" className={styles.imageChipRemove} onClick={() => removeNewImage(idx)}>✕</button>
+              <span className={styles.imageChipNewBadge}>Новое</span>
+            </div>
+          ))}
+          <button
+            type="button"
+            className={styles.addPhotoBtn}
+            onClick={() => fileInputRef.current?.click()}
+            title="Добавить фото"
+          >
+            <span className={styles.addPhotoPlus}>+</span>
+            <span className={styles.addPhotoText}>Добавить</span>
+          </button>
         </div>
-      )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFilesAdd}
+        />
+        {newImages.length > 0 && (
+          <p className={styles.helper}>Новых файлов для загрузки: {newImages.length}</p>
+        )}
+      </div>
 
+      {/* ── Map ──────────────────────────────────────────── */}
       <div className={styles.field}>
         <label>Точка на карте</label>
         <p className={styles.coordHint}>
-          Если точку не выбрать вручную, для геолокации на карте гостей используется центр выбранного города — уточните
-          положение заведения на карте ниже.
+          Нажмите на карту, чтобы задать точную геолокацию — или введите адрес выше для автоматического определения.
         </p>
-        <button
-          type="button"
-          className={styles.secondaryBtn}
-          onClick={() => setManualPointEnabled((prev) => !prev)}
-        >
-          {manualPointEnabled ? 'Скрыть выбор точки на карте' : 'Уточнить точку на карте'}
-        </button>
+        {!manualPointEnabled && isEdit && (
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            onClick={() => setManualPointEnabled(true)}
+          >
+            Уточнить точку на карте
+          </button>
+        )}
       </div>
 
       {(manualPointEnabled || !isEdit) && (
         <div className={styles.mapBlock}>
-          <YMaps version="2.1" query={mapQuery}>
-            <Map
-              state={mapState}
-              width="100%"
-              height="300px"
-              onClick={(event) => {
-                const coords = event.get('coords');
-                setManualPoint([coords[0], coords[1]]);
-              }}
-            >
-              {manualPoint && <Placemark geometry={manualPoint} options={{ preset: 'islands#redIcon' }} />}
-            </Map>
-          </YMaps>
+          <Map
+            state={mapState}
+            width="100%"
+            height="300px"
+            onClick={handleMapClick}
+          >
+            {manualPoint && (
+              <Placemark
+                geometry={manualPoint}
+                options={{
+                  iconLayout: 'default#image',
+                  iconImageHref: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='48' viewBox='0 0 36 48'%3E%3Cpath d='M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z' fill='%23f2d09a' stroke='%23c9a962' stroke-width='2'/%3E%3Ccircle cx='18' cy='18' r='7' fill='%23141820'/%3E%3C/svg%3E",
+                  iconImageSize: [36, 48],
+                  iconImageOffset: [-18, -48],
+                }}
+              />
+            )}
+          </Map>
           <p className={styles.helper}>
-            Нажмите на карту, чтобы выбрать точку. Адрес останется основным источником, эта точка используется как fallback.
+            Нажмите на карту — адрес заполнится автоматически.
           </p>
         </div>
       )}
@@ -248,6 +377,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
         {saving ? 'Сохранение...' : isEdit ? 'Сохранить карточку' : 'Добавить в гид'}
       </button>
     </form>
+    </YMaps>
   );
 };
 
