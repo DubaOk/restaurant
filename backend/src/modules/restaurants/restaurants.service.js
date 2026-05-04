@@ -250,6 +250,18 @@ const update = async (id, ownerId, data, uploadedImageUrls = []) => {
   return normalizeRestaurant(updated);
 };
 
+const updateHallSchema = async (id, ownerId, hallSchema) => {
+  const restaurant = await prisma.restaurant.findUnique({ where: { id } });
+  if (!restaurant) throw ApiError.notFound('Ресторан не найден');
+  if (restaurant.ownerId !== ownerId) throw ApiError.forbidden('Нет прав на редактирование');
+
+  const updated = await prisma.restaurant.update({
+    where: { id },
+    data: { hallSchema: hallSchema ?? null },
+  });
+  return updated;
+};
+
 const remove = async (id, ownerId, ownerRole) => {
   const restaurant = await prisma.restaurant.findUnique({ where: { id } });
   if (!restaurant) throw ApiError.notFound('Ресторан не найден');
@@ -271,4 +283,4 @@ const recalcAvgRating = async (restaurantId) => {
   });
 };
 
-module.exports = { getAll, getById, create, update, remove, recalcAvgRating };
+module.exports = { getAll, getById, create, update, remove, recalcAvgRating, updateHallSchema };

@@ -230,23 +230,65 @@
 }
 
 .recCol h2 {
-  margin: 0 0 .6rem;
+  margin: 0 0 .75rem;
   color: #d8ab69;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
+  font-weight: 600;
 }
 
-.recCol ul {
+.recList {
+  list-style: none;
   margin: 0;
-  padding-left: 1.2rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.recCol li {
-  margin-bottom: .5rem;
+.recItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.recName {
   color: #d1d3d8;
+  font-size: 0.85rem;
+  flex: 1;
 }
 
-.recCol li::marker {
-  color: #d8ab69;
+.recPrice {
+  color: #c9a962;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Empty promotions placeholder */
+.emptyPromo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.emptyPromoIcon {
+  font-size: 2rem;
+  opacity: 0.45;
+}
+
+.emptyPromoText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  line-height: 1.45;
 }
 
 .contacts {
@@ -300,10 +342,11 @@
   margin-top: 0.75rem;
   padding: 0 clamp(0.65rem, 3vw, 2rem) 2.25rem;
   box-sizing: border-box;
-  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(34, 57, 88, 0.22), transparent 55%), #080a0f;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  min-height: calc(100vh - var(--nav-height) - 0.5rem);
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(28, 48, 78, 0.28), transparent 60%),
+    #0a0d14;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
 }
@@ -313,9 +356,10 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 1680px;
+  max-width: 1200px;
   margin: 0 auto;
   min-height: 0;
+  padding-top: 0.5rem;
 }
 
 .bookingHeader {

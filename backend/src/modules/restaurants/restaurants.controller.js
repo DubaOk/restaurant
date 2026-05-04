@@ -54,4 +54,17 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, remove };
+const updateHallSchema = async (req, res, next) => {
+  try {
+    const result = await restaurantsService.updateHallSchema(
+      parseInt(req.params.id),
+      req.user.id,
+      req.body.hallSchema ?? null,
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, remove, updateHallSchema };

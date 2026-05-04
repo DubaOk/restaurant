@@ -41,5 +41,6 @@ export const restaurantsApi = {
   getById: (id) => api.get(`/restaurants/${id}`),
   create: (data) => api.post('/restaurants', buildRestaurantFormData(data), multipartConfig),
   update: (id, data) => api.put(`/restaurants/${id}`, buildRestaurantFormData(data), multipartConfig),
+  updateHallSchema: (id, schema) => api.patch(`/restaurants/${id}/hall-schema`, { hallSchema: schema }),
   remove: (id) => api.delete(`/restaurants/${id}`),
 };

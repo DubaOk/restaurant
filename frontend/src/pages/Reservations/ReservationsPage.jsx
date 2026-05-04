@@ -4,9 +4,6 @@ import Navbar from '../../components/Navbar/Navbar';
 import EditBookingModal from '../../components/EditBookingModal/EditBookingModal';
 import styles from './ReservationsPage.module.css';
 
-const DEPOSIT_PER_GUEST = 25;
-const calcDeposit = (n) => Math.max(DEPOSIT_PER_GUEST, n * DEPOSIT_PER_GUEST);
-
 const STATUS_LABELS = {
   PENDING: 'Ожидает',
   CONFIRMED: 'Подтверждено',
@@ -118,7 +115,6 @@ const ReservationsPage = () => {
                       <div className={styles.meta}>
                         <span>Гостей: {r.guestsCount}</span>
                         {r.table && <span>· Стол №{r.table.number}</span>}
-                        <span>· Депозит: <strong>{calcDeposit(r.guestsCount)} <i className="nbrb-icon">BYN</i></strong></span>
                       </div>
                       {r.comment && <span className={styles.comment}>{r.comment}</span>}
                     </div>

@@ -1,29 +1,14 @@
 .wizard {
   position: relative;
-  background: rgba(18, 22, 30, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  padding: 1.75rem 2rem;
+  background: #151a22;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
   color: #e8eaed;
-  /* backdrop-filter НЕ ставим на сам элемент: Chrome делает его containing block
-     для position:fixed потомков → попап TableFloorPlan позиционируется неверно */
-}
-
-.wizard::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 18px;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* ─── Step bar ─────────────────────────────────────────── */
 .stepBar {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   margin-bottom: 1.85rem;
@@ -92,8 +77,6 @@
 
 /* ─── Step content ─────────────────────────────────────── */
 .stepContent {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -194,6 +177,49 @@
   margin-left: 0.4rem;
   font-size: 0.88rem;
   color: #9aa3b2;
+}
+
+/* ─── Time input (styled to match DatePicker trigger) ───── */
+.timeInput {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(14, 18, 26, 0.75);
+  color: #e0e4ec;
+  font-size: 0.88rem;
+  font-family: inherit;
+  outline: none;
+  color-scheme: dark;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  cursor: pointer;
+}
+
+.timeInput:hover {
+  border-color: rgba(242, 208, 154, 0.4);
+  background: rgba(20, 25, 36, 0.85);
+}
+
+.timeInput:focus {
+  border-color: rgba(242, 208, 154, 0.65);
+  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.12);
+}
+
+.timeHint {
+  font-size: 0.68rem;
+  color: rgba(160, 168, 185, 0.65);
+  margin-top: 0.15rem;
+}
+
+.validationHint {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 168, 60, 0.3);
+  background: rgba(220, 168, 60, 0.07);
+  color: rgba(242, 208, 100, 0.9);
+  font-size: 0.8rem;
 }
 
 /* ─── Step 2: floor plan ────────────────────────────────── */

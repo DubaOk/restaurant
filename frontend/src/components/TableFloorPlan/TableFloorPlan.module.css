@@ -261,3 +261,21 @@
   font-size: 0.78rem;
   cursor: pointer;
 }
+
+/* ─── Custom hall schema decoration ────────────────────────────── */
+.objLabel {
+  fill: rgba(240, 235, 220, 0.72);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+.entranceLabel {
+  fill: rgba(184, 154, 99, 0.65);
+  font-size: 11px;
+  font-family: inherit;
+  letter-spacing: 0.07em;
+  pointer-events: none;
+}

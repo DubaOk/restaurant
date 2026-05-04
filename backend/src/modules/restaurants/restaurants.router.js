@@ -8,6 +8,7 @@ router.get('/', controller.getAll);
 router.get('/:id', controller.getById);
 router.post('/', authenticate, authorize('OWNER'), uploadRestaurantImages.array('images', 10), controller.create);
 router.put('/:id', authenticate, authorize('OWNER'), uploadRestaurantImages.array('images', 10), controller.update);
+router.patch('/:id/hall-schema', authenticate, authorize('OWNER'), controller.updateHallSchema);
 router.delete('/:id', authenticate, authorize('OWNER', 'ADMIN'), controller.remove);
 
 module.exports = router;

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../api/auth.api';
-import { bonusesApi } from '../../api/bonuses.api';
 import { favoritesApi } from '../../api/favorites.api';
 import { restaurantsApi } from '../../api/restaurants.api';
 import Navbar from '../../components/Navbar/Navbar';
@@ -13,8 +12,6 @@ const ProfilePage = () => {
   const { user, updateUser } = useAuth();
 
   const [form, setForm] = useState({ name: user?.name || '', phone: user?.phone || '' });
-  const [bonuses, setBonuses] = useState(null);
-  const [transactions, setTransactions] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -53,8 +50,6 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (user?.role === 'CLIENT') {
-      bonusesApi.getMyBalance().then(({ data }) => setBonuses(data.data.balance));
-      bonusesApi.getMyTransactions().then(({ data }) => setTransactions(data.data));
       favoritesApi.getMyFavorites().then(({ data }) => setFavorites(data.data)).catch(() => {});
     }
   }, [user]);
@@ -282,35 +277,6 @@ const ProfilePage = () => {
                 </button>
               </form>
             </section>
-
-            {user?.role === 'CLIENT' && (
-              <section className={styles.card}>
-                <h2>Бонусный счёт</h2>
-                <div className={styles.bonusBalanceBlock}>
-                  <span className={styles.bonusBalanceBig}>
-                    {bonuses !== null ? bonuses : '…'}
-                  </span>
-                  <span className={styles.bonusBalanceUnit}>бонусов</span>
-                </div>
-                <p className={styles.bonusHint}>
-                  Бонусы начисляются при подтверждении посещения (10% от депозита) и могут использоваться при следующем бронировании.
-                </p>
-
-                <h3 className={styles.txTitle}>История транзакций</h3>
-                {transactions.length === 0 ? (
-                  <p className={styles.empty}>Транзакций пока нет</p>
-                ) : (
-                  <ul className={styles.txList}>
-                    {transactions.map((tx) => (
-                      <li key={tx.id} className={`${styles.tx} ${tx.type === 'EARN' ? styles.earn : styles.spend}`}>
-                        <span>{tx.description}</span>
-                        <span>{tx.type === 'EARN' ? `+${tx.amount}` : `-${tx.amount}`}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )}
 
             {user?.role === 'CLIENT' && (
               <section className={`${styles.card} ${styles.cardWide}`}>

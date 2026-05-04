@@ -1,11 +1,95 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tablesApi } from '../../api/tables.api';
+import { restaurantsApi } from '../../api/restaurants.api';
 import { computeTableLayouts } from '../../utils/tableFloorLayout';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
+import HallEditor, { OBJECT_PRESETS } from '../HallEditor/HallEditor';
 import styles from './OwnerTablesManager.module.css';
 
 const SVG_W = 1000;
 const SVG_H = 520;
+const SCHEME_STORAGE_PREFIX = 'owner-floor-scheme';
+const HALL_SCHEMA_KEY = (id) => `hall_schema_${id}`;
+
+const FLOOR_SCHEMES = [
+  {
+    id: 'classic',
+    name: 'Классика',
+    hallPath: 'M58 82 Q500 18 942 82 L962 170 L930 438 Q500 494 70 438 L38 170 Z',
+    entrance: { x1: 430, y1: 448, x2: 570, y2: 448, labelX: 500, labelY: 474, label: 'вход' },
+    title: 'схема зала · классика',
+  },
+  {
+    id: 'loft',
+    name: 'Лофт',
+    hallPath: 'M54 64 L906 64 L948 124 L926 458 L650 458 L612 416 L196 416 L158 458 L76 458 L32 136 Z',
+    entrance: { x1: 90, y1: 458, x2: 210, y2: 458, labelX: 150, labelY: 484, label: 'вход' },
+    title: 'схема зала · лофт',
+  },
+  {
+    id: 'atrium',
+    name: 'Атриум',
+    hallPath: 'M66 98 Q200 46 346 78 Q500 24 654 78 Q800 46 934 98 L902 432 Q500 486 98 432 Z',
+    entrance: { x1: 460, y1: 432, x2: 540, y2: 432, labelX: 500, labelY: 456, label: 'вход' },
+    title: 'схема зала · атриум',
+  },
+  {
+    id: 'terrace',
+    name: 'Терраса',
+    hallPath: 'M44 110 L700 110 L780 70 L930 70 L930 438 L790 438 L700 398 L44 398 Z',
+    entrance: { x1: 820, y1: 70, x2: 900, y2: 70, labelX: 860, labelY: 94, label: 'вход' },
+    title: 'схема зала · терраса',
+  },
+  {
+    id: 'banquet',
+    name: 'Банкет',
+    hallPath: 'M40 102 L960 102 L960 418 L40 418 Z',
+    entrance: { x1: 920, y1: 210, x2: 920, y2: 310, labelX: 870, labelY: 266, label: 'вход' },
+    title: 'схема зала · банкетный',
+  },
+  {
+    id: 'gallery',
+    name: 'Галерея',
+    hallPath: 'M60 76 L742 76 L820 120 L940 120 L940 444 L820 444 L742 486 L60 486 Z',
+    entrance: { x1: 888, y1: 468, x2: 940, y2: 468, labelX: 900, labelY: 492, label: 'вход' },
+    title: 'схема зала · галерея',
+  },
+  {
+    id: 'u-shape',
+    name: 'U-форма',
+    hallPath: 'M58 74 L942 74 L942 220 L760 220 L760 360 L242 360 L242 220 L58 220 Z',
+    entrance: { x1: 450, y1: 360, x2: 550, y2: 360, labelX: 500, labelY: 384, label: 'вход' },
+    title: 'схема зала · u-форма',
+  },
+  {
+    id: 'arcade',
+    name: 'Аркада',
+    hallPath: 'M70 130 Q180 54 320 80 Q500 26 680 80 Q820 54 930 130 L930 420 Q500 500 70 420 Z',
+    entrance: { x1: 80, y1: 248, x2: 80, y2: 312, labelX: 126, labelY: 286, label: 'вход' },
+    title: 'схема зала · аркада',
+  },
+  {
+    id: 'amphitheater',
+    name: 'Премиум · Амфитеатр',
+    hallPath: 'M58 140 Q170 56 320 84 Q500 20 680 84 Q830 56 942 140 L910 430 Q500 506 90 430 Z',
+    entrance: { x1: 464, y1: 430, x2: 536, y2: 430, labelX: 500, labelY: 454, label: 'главный вход' },
+    title: 'премиум · амфитеатр',
+  },
+  {
+    id: 'private-cabins',
+    name: 'Премиум · Кабинки',
+    hallPath: 'M42 92 L958 92 L958 438 L860 438 L860 370 L700 370 L700 438 L300 438 L300 370 L140 370 L140 438 L42 438 Z',
+    entrance: { x1: 920, y1: 92, x2: 958, y2: 92, labelX: 922, labelY: 116, label: 'вход' },
+    title: 'премиум · приватные кабинки',
+  },
+  {
+    id: 'island-bar',
+    name: 'Премиум · Островной бар',
+    hallPath: 'M52 86 L948 86 L948 432 L52 432 Z',
+    entrance: { x1: 72, y1: 432, x2: 200, y2: 432, labelX: 136, labelY: 456, label: 'вход' },
+    title: 'премиум · островной бар',
+  },
+];
 
 function toSvgCoords(svgEl, clientX, clientY) {
   const rect = svgEl.getBoundingClientRect();
@@ -22,7 +106,7 @@ const rowDraft = (t) => ({
 });
 
 const OwnerTablesManager = ({ restaurantId }) => {
-  const [tab, setTab] = useState('editor'); // 'editor' | 'list'
+  const [tab, setTab] = useState('editor');
   const [tables, setTables] = useState([]);
   const [rows, setRows] = useState({});
   const [selectedId, setSelectedId] = useState(null);
@@ -32,12 +116,18 @@ const OwnerTablesManager = ({ restaurantId }) => {
   const [error, setError] = useState('');
   const [newTable, setNewTable] = useState({ number: 1, capacity: 4, isAvailable: true });
   const [tablePendingDelete, setTablePendingDelete] = useState(null);
+  const [schemeId, setSchemeId] = useState(FLOOR_SCHEMES[0].id);
 
-  // Drag state for floor editor
+  // Custom hall: schema loaded from localStorage via HallEditor's own key
+  const [customSchema, setCustomSchema] = useState(null); // { polygonPoints, entranceLine }
+  // Whether the HallEditor is currently visible (editing custom hall shape)
+  const [editingHall, setEditingHall] = useState(false);
+
   const svgRef = useRef(null);
-  const dragRef = useRef(null); // { tableId, offsetX, offsetY }
-  const [dragPos, setDragPos] = useState({}); // { [id]: { cx, cy } }
+  const dragRef = useRef(null); // { tableId, offsetX, offsetY, cx, cy }
+  const [dragPos, setDragPos] = useState({});
 
+  // ─── Load tables ──────────────────────────────────────────────
   const reload = useCallback(async () => {
     if (!restaurantId) return;
     setLoading(true);
@@ -63,6 +153,32 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
   useEffect(() => { reload(); }, [reload]);
 
+  // ─── Load saved scheme id ─────────────────────────────────────
+  useEffect(() => {
+    const key = `${SCHEME_STORAGE_PREFIX}:${restaurantId}`;
+    const saved = localStorage.getItem(key);
+    const validIds = [...FLOOR_SCHEMES.map((s) => s.id), 'custom'];
+    setSchemeId(saved && validIds.includes(saved) ? saved : FLOOR_SCHEMES[0].id);
+    setEditingHall(false);
+  }, [restaurantId]);
+
+  // ─── Load custom hall schema & sync to backend ───────────────
+  useEffect(() => {
+    if (!restaurantId) return;
+    try {
+      const raw = localStorage.getItem(HALL_SCHEMA_KEY(restaurantId));
+      const parsed = raw ? JSON.parse(raw) : null;
+      setCustomSchema(parsed);
+      // Sync to DB so clients see the custom schema
+      if (parsed?.polygonPoints?.length >= 3) {
+        restaurantsApi.updateHallSchema(restaurantId, raw).catch(() => {});
+      }
+    } catch {
+      setCustomSchema(null);
+    }
+  }, [restaurantId]);
+
+  // ─── Suggested new table number ───────────────────────────────
   const suggestedNumber = useMemo(() => {
     if (!tables.length) return 1;
     return Math.max(...tables.map((t) => t.number)) + 1;
@@ -72,7 +188,70 @@ const OwnerTablesManager = ({ restaurantId }) => {
     setNewTable((prev) => ({ ...prev, number: suggestedNumber }));
   }, [suggestedNumber, restaurantId]);
 
-  // ─── Drag handlers ────────────────────────────────────────
+  // ─── Selected scheme (with custom support) ────────────────────
+  const selectedScheme = useMemo(() => {
+    if (schemeId === 'custom') {
+      const ent = customSchema?.entranceLine;
+      return {
+        id: 'custom',
+        hallPath: null,
+        entrance: ent
+          ? {
+              x1: ent.start.x, y1: ent.start.y,
+              x2: ent.end.x,   y2: ent.end.y,
+              labelX: Math.round((ent.start.x + ent.end.x) / 2),
+              labelY: Math.round((ent.start.y + ent.end.y) / 2) + 18,
+              label: 'вход',
+            }
+          : null,
+        title: 'схема зала · свой',
+      };
+    }
+    return FLOOR_SCHEMES.find((s) => s.id === schemeId) || FLOOR_SCHEMES[0];
+  }, [schemeId, customSchema]);
+
+  const renderSchemeDecor = () => {
+    if (selectedScheme.id === 'island-bar') {
+      return (
+        <>
+          <rect x={410} y={210} width={180} height={100} rx={22} className={styles.editorDecorIsland} />
+          <text x={500} y={268} textAnchor="middle" className={styles.editorDecorLabel}>бар</text>
+        </>
+      );
+    }
+    if (selectedScheme.id === 'private-cabins') {
+      return (
+        <>
+          <rect x={80} y={130} width={130} height={90} rx={14} className={styles.editorDecorCabin} />
+          <rect x={790} y={130} width={130} height={90} rx={14} className={styles.editorDecorCabin} />
+          <rect x={80} y={252} width={130} height={90} rx={14} className={styles.editorDecorCabin} />
+          <rect x={790} y={252} width={130} height={90} rx={14} className={styles.editorDecorCabin} />
+        </>
+      );
+    }
+    if (selectedScheme.id === 'amphitheater') {
+      return (
+        <>
+          <path d="M170 340 Q500 430 830 340" className={styles.editorDecorArc} />
+          <path d="M210 304 Q500 380 790 304" className={styles.editorDecorArc} />
+          <path d="M250 272 Q500 334 750 272" className={styles.editorDecorArc} />
+        </>
+      );
+    }
+    return null;
+  };
+
+  const handleSchemeChange = (nextId) => {
+    setSchemeId(nextId);
+    if (nextId === 'custom') {
+      setEditingHall(!(customSchema?.polygonPoints?.length >= 3));
+    } else {
+      setEditingHall(false);
+    }
+    localStorage.setItem(`${SCHEME_STORAGE_PREFIX}:${restaurantId}`, nextId);
+  };
+
+  // ─── Drag (fix: position stored in dragRef, not dragPos closure) ─
   const layouts = useMemo(() => {
     const tablesWithDrag = tables.map((t) => {
       const dp = dragPos[t.id];
@@ -88,7 +267,13 @@ const OwnerTablesManager = ({ restaurantId }) => {
     setSelectedId(tableId);
     if (!svgRef.current) return;
     const svgPos = toSvgCoords(svgRef.current, e.clientX, e.clientY);
-    dragRef.current = { tableId, offsetX: cx - svgPos.x, offsetY: cy - svgPos.y };
+    dragRef.current = {
+      tableId,
+      offsetX: cx - svgPos.x,
+      offsetY: cy - svgPos.y,
+      cx,
+      cy,
+    };
   }, [tab]);
 
   const handleSvgPointerMove = useCallback((e) => {
@@ -96,24 +281,57 @@ const OwnerTablesManager = ({ restaurantId }) => {
     const svgPos = toSvgCoords(svgRef.current, e.clientX, e.clientY);
     const cx = Math.max(55, Math.min(945, svgPos.x + dragRef.current.offsetX));
     const cy = Math.max(55, Math.min(465, svgPos.y + dragRef.current.offsetY));
-    setDragPos((prev) => ({ ...prev, [dragRef.current.tableId]: { cx, cy } }));
+    dragRef.current.cx = cx;
+    dragRef.current.cy = cy;
+    const id = dragRef.current.tableId;
+    setDragPos((prev) => ({ ...prev, [id]: { cx, cy } }));
   }, []);
 
   const handleSvgPointerUp = useCallback(async () => {
     if (!dragRef.current) return;
-    const { tableId } = dragRef.current;
-    const pos = dragPos[tableId];
+    const { tableId, cx, cy } = dragRef.current;
     dragRef.current = null;
-    if (pos) {
-      try {
-        const { data } = await tablesApi.update(tableId, { posX: pos.cx, posY: pos.cy });
+    setDragPos((prev) => { const n = { ...prev }; delete n[tableId]; return n; });
+    setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, posX: cx, posY: cy } : t)));
+    try {
+      const { data } = await tablesApi.update(tableId, { posX: cx, posY: cy });
+      if (data?.data) {
         const updated = data.data;
         setTables((prev) => prev.map((t) => (t.id === updated.id ? { ...t, posX: updated.posX, posY: updated.posY } : t)));
-      } catch {
-        setDragPos((prev) => { const n = { ...prev }; delete n[tableId]; return n; });
       }
+    } catch {
+      reload();
     }
-  }, [dragPos]);
+  }, [reload]);
+
+  const cancelDrag = useCallback(() => {
+    if (!dragRef.current) return;
+    const { tableId } = dragRef.current;
+    dragRef.current = null;
+    setDragPos((prev) => { const n = { ...prev }; delete n[tableId]; return n; });
+  }, []);
+
+  // ─── Hall modal close ─────────────────────────────────────────
+  const handleModalClose = useCallback(() => {
+    setEditingHall(false);
+    // Re-read schema from localStorage in case HallEditor auto-saved changes
+    try {
+      const raw = localStorage.getItem(HALL_SCHEMA_KEY(restaurantId));
+      const parsed = raw ? JSON.parse(raw) : null;
+      setCustomSchema(parsed);
+      if (parsed?.polygonPoints?.length >= 3) {
+        restaurantsApi.updateHallSchema(restaurantId, raw).catch(() => {});
+      }
+    } catch { /* silent */ }
+  }, [restaurantId]);
+
+  // ESC key closes the modal
+  useEffect(() => {
+    if (!editingHall) return;
+    const onKey = (e) => { if (e.key === 'Escape') handleModalClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingHall, handleModalClose]);
 
   const resetPositions = async () => {
     if (!selectedId) return;
@@ -126,7 +344,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
-  // ─── Row/table edit (list tab) ────────────────────────────
+  // ─── Row / table edit (list tab) ──────────────────────────────
   const handleRowChange = (id, patch) => {
     setRows((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   };
@@ -164,7 +382,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
-  // ─── Selected table row edit (editor panel) ───────────────
+  // ─── Selected table panel ─────────────────────────────────────
   const selectedTable = tables.find((t) => t.id === selectedId);
   const selectedRow = selectedId ? rows[selectedId] : null;
 
@@ -199,7 +417,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
     );
   };
 
-  // ─── Create ───────────────────────────────────────────────
+  // ─── Create ───────────────────────────────────────────────────
   const handleCreate = async (e) => {
     e.preventDefault();
     setCreating(true);
@@ -225,7 +443,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
-  // ─── Delete ───────────────────────────────────────────────
+  // ─── Delete ───────────────────────────────────────────────────
   const confirmRemove = async () => {
     if (!tablePendingDelete) return;
     const t = tablePendingDelete;
@@ -240,7 +458,13 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────
+  const allSchemes = [...FLOOR_SCHEMES, { id: 'custom', name: '✏ Свой' }];
+
+  const customPolygon = customSchema?.polygonPoints?.length >= 3
+    ? customSchema.polygonPoints
+    : null;
+
   return (
     <section className={styles.section}>
       <div className={styles.sectionHead}>
@@ -270,12 +494,55 @@ const OwnerTablesManager = ({ restaurantId }) => {
       {tab === 'editor' && !loading && (
         <div className={styles.editorLayout}>
           <div className={styles.editorCanvas}>
+
+            {/* Scheme selector */}
+            <div className={styles.schemeBar}>
+              <span className={styles.schemeLabel}>Шаблон схемы:</span>
+              <div className={styles.schemeChips}>
+                {allSchemes.map((scheme) => (
+                  <button
+                    key={scheme.id}
+                    type="button"
+                    className={`${styles.schemeChip} ${scheme.id === schemeId ? styles.schemeChipActive : ''}`}
+                    onClick={() => handleSchemeChange(scheme.id)}
+                  >
+                    {scheme.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom scheme: "Edit hall" button */}
+            {schemeId === 'custom' && (
+              <div className={styles.customToolbar}>
+                {customPolygon ? (
+                  <button
+                    type="button"
+                    className={styles.schemeChip}
+                    onClick={() => setEditingHall(true)}
+                  >
+                    ✏ Редактировать зал
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.btnGold}
+                    onClick={() => setEditingHall(true)}
+                  >
+                    ✏ Нарисовать форму зала
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* SVG canvas — always visible (HallEditor opens as modal) */}
             <p className={styles.editorHint}>
               Перетащите столики, чтобы разместить их в зале. Позиция сохраняется автоматически при отпускании.
             </p>
+
             {tables.length === 0 ? (
               <div className={styles.emptyCanvas}>
-                Столов пока нет — добавьте первый ниже
+                Столов пока нет — добавьте первый в панели справа
               </div>
             ) : (
               <svg
@@ -285,41 +552,93 @@ const OwnerTablesManager = ({ restaurantId }) => {
                 xmlns="http://www.w3.org/2000/svg"
                 onPointerMove={handleSvgPointerMove}
                 onPointerUp={handleSvgPointerUp}
+                onPointerCancel={cancelDrag}
               >
                 <defs>
                   <filter id="editorGlow" x="-40%" y="-40%" width="180%" height="180%">
                     <feGaussianBlur stdDeviation="5" result="b" />
-                    <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    <feMerge>
+                      <feMergeNode in="b" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
                   </filter>
                 </defs>
 
-                <path
-                  className={styles.editorHall}
-                  d="M40 72 Q500 38 960 72 L980 488 Q500 442 20 488 Z"
-                  fill="none"
-                />
-                <text x={500} y={42} textAnchor="middle" className={styles.editorHallTitle}>
-                  схема зала · редактор расстановки
-                </text>
-                <line className={styles.editorEntrance} x1={360} y1={488} x2={640} y2={488} />
-                <text x={500} y={508} textAnchor="middle" className={styles.editorEntranceLabel}>вход</text>
+                {/* Hall outline */}
+                {schemeId === 'custom' && customPolygon ? (
+                  <polygon
+                    points={customPolygon.map((p) => `${p.x},${p.y}`).join(' ')}
+                    className={styles.editorHall}
+                    fill="none"
+                  />
+                ) : selectedScheme.hallPath ? (
+                  <path className={styles.editorHall} d={selectedScheme.hallPath} fill="none" />
+                ) : (
+                  <rect x={56} y={88} width={888} height={376} rx={20} className={styles.editorHallPlaceholder} />
+                )}
 
+                {/* Custom schema objects (bar, stage, etc.) */}
+                {schemeId === 'custom' && customSchema?.objects?.map((obj) => {
+                  const pr = OBJECT_PRESETS[obj.type];
+                  if (!pr) return null;
+                  return (
+                    <g key={obj.id} style={{ pointerEvents: 'none' }}>
+                      <rect
+                        x={obj.x - obj.w / 2} y={obj.y - obj.h / 2}
+                        width={obj.w} height={obj.h} rx={obj.rx}
+                        fill={pr.fill} stroke={pr.stroke} strokeWidth="1.5"
+                      />
+                      {obj.label && (
+                        <text
+                          x={obj.x} y={obj.y}
+                          textAnchor="middle" dominantBaseline="middle"
+                          className={styles.editorDecorLabel}
+                        >
+                          {obj.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {renderSchemeDecor()}
+
+                <text x={500} y={42} textAnchor="middle" className={styles.editorHallTitle}>
+                  {selectedScheme.title}
+                </text>
+
+                {/* Entrance */}
+                {selectedScheme.entrance && (
+                  <>
+                    <line
+                      className={styles.editorEntrance}
+                      x1={selectedScheme.entrance.x1} y1={selectedScheme.entrance.y1}
+                      x2={selectedScheme.entrance.x2} y2={selectedScheme.entrance.y2}
+                    />
+                    <text
+                      x={selectedScheme.entrance.labelX} y={selectedScheme.entrance.labelY}
+                      textAnchor="middle" className={styles.editorEntranceLabel}
+                    >
+                      {selectedScheme.entrance.label}
+                    </text>
+                  </>
+                )}
+
+                {/* Tables */}
                 {layouts.map((layout) => {
                   const { table, x, y, w, h, rx, cx, cy } = layout;
                   const isSelected = selectedId === table.id;
-                  const isDragging = Boolean(dragRef.current?.tableId === table.id);
+                  const isDragging = Boolean(dragPos[table.id]);
                   return (
                     <g
                       key={table.id}
                       transform={`translate(${x}, ${y})`}
                       className={`${styles.editorTable} ${isSelected ? styles.editorTableSelected : ''} ${isDragging ? styles.editorTableDragging : ''}`}
                       onPointerDown={(e) => handleTablePointerDown(e, table.id, cx, cy)}
-                      style={{ cursor: 'grab' }}
+                      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
                     >
                       <rect
-                        width={w}
-                        height={h}
-                        rx={rx}
+                        width={w} height={h} rx={rx}
                         className={`${styles.editorTableRect} ${isSelected ? styles.editorTableRectSelected : ''} ${!table.isAvailable ? styles.editorTableRectDisabled : ''}`}
                         filter={isSelected ? 'url(#editorGlow)' : undefined}
                       />
@@ -338,6 +657,28 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   );
                 })}
               </svg>
+            )}
+
+            {/* ── Hall Editor modal ────────────────────────────────── */}
+            {editingHall && (
+              <div className={styles.hallModal}>
+                <div className={styles.hallModalBackdrop} onClick={handleModalClose} />
+                <div className={styles.hallModalBox}>
+                  <div className={styles.hallModalHeader}>
+                    <span className={styles.hallModalTitle}>Редактор схемы зала</span>
+                    <button type="button" className={styles.hallModalClose} onClick={handleModalClose}>✕</button>
+                  </div>
+                  <HallEditor
+                    restaurantId={restaurantId}
+                    onDone={(schema) => {
+                      setCustomSchema(schema);
+                      setEditingHall(false);
+                      // Persist schema to backend so clients can see the custom hall
+                      restaurantsApi.updateHallSchema(restaurantId, JSON.stringify(schema)).catch(() => {});
+                    }}
+                  />
+                </div>
+              </div>
             )}
           </div>
 

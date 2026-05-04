@@ -1,0 +1,175 @@
+.root {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+/* ── Trigger button ─────────────────────────────────────────── */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(14, 18, 26, 0.75);
+  color: #e0e4ec;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  user-select: none;
+}
+
+.trigger:hover {
+  border-color: rgba(242, 208, 154, 0.4);
+  background: rgba(20, 25, 36, 0.85);
+}
+
+.triggerOpen {
+  border-color: rgba(242, 208, 154, 0.65);
+  background: rgba(20, 25, 36, 0.9);
+}
+
+.triggerPlaceholder {
+  color: rgba(160, 168, 185, 0.7);
+}
+
+.triggerIcon {
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.triggerArrow {
+  margin-left: auto;
+  font-size: 1.2rem;
+  color: rgba(160, 168, 185, 0.55);
+  transition: transform 0.18s;
+  display: inline-block;
+  transform: rotate(90deg);
+}
+
+.triggerArrowUp {
+  transform: rotate(-90deg);
+  color: #f2d09a;
+}
+
+/* ── Pop-up calendar ────────────────────────────────────────── */
+.popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 400;
+  width: 280px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 13, 20, 0.98);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+  padding: 1rem;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ── Header (month nav) ─────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.monthLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f2d09a;
+  letter-spacing: 0.03em;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: border-color 0.16s, color 0.16s;
+  line-height: 1;
+}
+
+.navBtn:hover {
+  border-color: rgba(242, 208, 154, 0.4);
+  color: #f2d09a;
+}
+
+/* ── Day grid ───────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(160, 168, 185, 0.55);
+  padding: 0.25rem 0 0.4rem;
+}
+
+.day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #c8cdd8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.day:hover:not(:disabled) {
+  background: rgba(242, 208, 154, 0.12);
+  border-color: rgba(242, 208, 154, 0.28);
+  color: #f2d09a;
+}
+
+.dayToday {
+  border-color: rgba(242, 208, 154, 0.35);
+  color: #f2d09a;
+}
+
+.daySelected {
+  background: linear-gradient(135deg, rgba(242, 208, 154, 0.95) 0%, rgba(201, 169, 98, 0.95) 100%);
+  border-color: transparent;
+  color: #141820;
+  font-weight: 700;
+}
+
+.daySelected:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f2d09a 0%, #c9a962 100%);
+  color: #141820;
+}
+
+.dayDisabled {
+  color: rgba(160, 168, 185, 0.25);
+  cursor: not-allowed;
+}
+
+.dayDisabled:hover {
+  background: transparent;
+  border-color: transparent;
+  color: rgba(160, 168, 185, 0.25);
+}

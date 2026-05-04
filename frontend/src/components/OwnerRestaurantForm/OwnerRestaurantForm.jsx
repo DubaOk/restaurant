@@ -5,20 +5,6 @@ import { BELARUS_CITY_NAMES, getCityMapCenter } from '../../constants/belarusCit
 import styles from './OwnerRestaurantForm.module.css';
 
 const YANDEX_MAPS_API_KEY = import.meta.env.VITE_YANDEX_MAPS_API_KEY || '';
-const MAP_PIN_SVG = encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="56" viewBox="0 0 44 56">
-    <defs>
-      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f2d09a"/><stop offset="1" stop-color="#8a6230"/></linearGradient>
-      <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.45"/></filter>
-    </defs>
-    <path filter="url(#s)" fill="url(#g)" stroke="#1e1810" stroke-width="1.2"
-      d="M22 3C13.8 3 7 9.4 7 17.2 7 29 22 49 22 49s15-20 15-31.8C37 9.4 30.2 3 22 3z"/>
-    <circle cx="22" cy="17.5" r="5.2" fill="#141210" stroke="rgba(242,208,154,0.5)" stroke-width="0.9"/>
-    <path fill="none" stroke="rgba(242,208,154,0.85)" stroke-width="1.2" stroke-linecap="round"
-      d="M22 11v4M19 13h6"/>
-  </svg>`
-);
-const MAP_PIN_HREF = `data:image/svg+xml;charset=UTF-8,${MAP_PIN_SVG}`;
 
 const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
   const isEdit = Boolean(restaurant);
@@ -135,19 +121,8 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
     }, 350);
   };
 
-  const handleAddressBlur = async () => {
+  const handleAddressBlur = () => {
     setTimeout(() => setShowSuggestions(false), 150);
-    const value = form.address.trim();
-    if (!value) return;
-    try {
-      const data = await geocodeAddress(value, form.city);
-      if (data?.coords) {
-        setManualPoint(data.coords);
-        setManualPointEnabled(true);
-      }
-    } catch {
-      /* silent */
-    }
   };
 
   const handleSuggestionPick = async (suggestion) => {
@@ -169,10 +144,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
     const coords = event.get('coords');
     setManualPoint(coords);
     setManualPointEnabled(true);
-    if (typeof window.ymaps?.geocode !== 'function') {
-      setForm((prev) => ({ ...prev, address: `${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}` }));
-      return;
-    }
+    if (typeof window.ymaps?.geocode !== 'function') return;
     try {
       const result = await window.ymaps.geocode(coords, { results: 1 });
       const obj = result.geoObjects.get(0);
@@ -386,17 +358,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
             height="300px"
             onClick={handleMapClick}
           >
-            {manualPoint && (
-              <Placemark
-                geometry={manualPoint}
-                options={{
-                  iconLayout: 'default#image',
-                  iconImageHref: MAP_PIN_HREF,
-                  iconImageSize: [44, 56],
-                  iconImageOffset: [-22, -56],
-                }}
-              />
-            )}
+            {manualPoint && <Placemark geometry={manualPoint} options={{ preset: 'islands#darkOrangeIcon' }} />}
           </Map>
           <p className={styles.helper}>
             Нажмите на карту — адрес заполнится автоматически.

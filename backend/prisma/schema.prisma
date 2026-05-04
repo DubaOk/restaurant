@@ -60,6 +60,7 @@ model Restaurant {
   phone       String?
   openTime    String?
   closeTime   String?
+  hallSchema  String?
   imageUrl    String?
   latitude    Float?
   longitude   Float?
