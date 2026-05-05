@@ -36,11 +36,44 @@ const getByRestaurant = async (restaurantId, slotAtIso = null) => {
     }
   }
 
-  return tables.map((t) => ({
+  const mapped = tables.map((t) => ({
     ...t,
+    adjacentTableIds: Array.isArray(t.adjacentTableIds) ? t.adjacentTableIds : [],
     occupiedForSlot: slotKnown ? occupiedIds.has(t.id) : null,
     slotKnown,
   }));
+
+  // Build suggested adjacent pairs for availability context
+  if (slotKnown) {
+    const byId = Object.fromEntries(mapped.map((t) => [t.id, t]));
+    const pairSet = new Set();
+    const adjacentPairs = [];
+    for (const t of mapped) {
+      for (const adjId of t.adjacentTableIds) {
+        const adj = byId[adjId];
+        if (!adj) continue;
+        if (!t.occupiedForSlot && !adj.occupiedForSlot) {
+          const key = [Math.min(t.id, adj.id), Math.max(t.id, adj.id)].join('-');
+          if (!pairSet.has(key)) {
+            pairSet.add(key);
+            // Combined capacity: (N + M - 2) — lose 2 seats at the join
+            const combinedCap = (t.capacity + adj.capacity) - 2;
+            const combinedMax = ((t.maxCapacity || t.capacity) + (adj.maxCapacity || adj.capacity)) - 2;
+            adjacentPairs.push({ tableIds: [t.id, adj.id], combinedCapacity: combinedCap, combinedMax });
+          }
+        }
+      }
+    }
+    return { tables: mapped, adjacentPairs };
+  }
+
+  return { tables: mapped, adjacentPairs: [] };
+};
+
+const parseAdjacent = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(Number).filter(Number.isFinite);
+  try { return (JSON.parse(val)).map(Number).filter(Number.isFinite); } catch { return []; }
 };
 
 const pickCreateData = (body) => {
@@ -49,9 +82,14 @@ const pickCreateData = (body) => {
     number: parseInt(body.number, 10),
     capacity: parseInt(body.capacity, 10),
     isAvailable: body.isAvailable === undefined ? true : Boolean(body.isAvailable),
+    adjacentTableIds: parseAdjacent(body.adjacentTableIds),
   };
   if (body.posX != null) data.posX = parseFloat(body.posX);
   if (body.posY != null) data.posY = parseFloat(body.posY);
+  if (body.maxCapacity != null) {
+    const mc = parseInt(body.maxCapacity, 10);
+    if (Number.isFinite(mc) && mc >= data.capacity) data.maxCapacity = mc;
+  }
   return data;
 };
 
@@ -62,6 +100,10 @@ const pickUpdateData = (body) => {
   if (body.isAvailable !== undefined) data.isAvailable = Boolean(body.isAvailable);
   if (body.posX !== undefined) data.posX = body.posX != null ? parseFloat(body.posX) : null;
   if (body.posY !== undefined) data.posY = body.posY != null ? parseFloat(body.posY) : null;
+  if (body.adjacentTableIds !== undefined) data.adjacentTableIds = parseAdjacent(body.adjacentTableIds);
+  if (body.maxCapacity !== undefined) {
+    data.maxCapacity = body.maxCapacity != null ? parseInt(body.maxCapacity, 10) : null;
+  }
   return data;
 };
 

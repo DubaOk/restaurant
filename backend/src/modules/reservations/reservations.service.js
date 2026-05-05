@@ -4,7 +4,7 @@ const bonusesService = require('../bonuses/bonuses.service');
 
 const RESERVATION_INCLUDE = {
   restaurant: { select: { id: true, name: true, address: true } },
-  table: { select: { id: true, number: true, capacity: true } },
+  table: { select: { id: true, number: true, capacity: true, maxCapacity: true } },
   user: { select: { id: true, name: true, email: true } },
 };
 
@@ -31,27 +31,69 @@ const DEPOSIT_PER_GUEST = 25;
 
 const calcDeposit = (guestsCount) => Math.max(DEPOSIT_PER_GUEST, guestsCount * DEPOSIT_PER_GUEST);
 
-const create = async (userId, { restaurantId, tableId, date, guestsCount, comment, bonusesToSpend }) => {
-  const table = await prisma.table.findFirst({
-    where: { id: tableId, restaurantId },
-    include: { restaurant: { select: { name: true } } },
-  });
-  if (!table) throw ApiError.notFound('Столик не найден в этом ресторане');
-  if (table.capacity < guestsCount)
-    throw ApiError.badRequest(`Столик рассчитан максимум на ${table.capacity} гостей`);
-
-  const conflict = await prisma.reservation.findFirst({
+const checkSlotConflict = async (tableId, date, excludeId = null) => {
+  return prisma.reservation.findFirst({
     where: {
-      tableId,
+      OR: [
+        { tableId },
+        { combinedWithTableId: tableId },
+      ],
       status: { in: ['PENDING', 'CONFIRMED'] },
+      id: excludeId ? { not: excludeId } : undefined,
       date: {
         gte: new Date(new Date(date).getTime() - 2 * 60 * 60 * 1000),
         lte: new Date(new Date(date).getTime() + 2 * 60 * 60 * 1000),
       },
     },
   });
+};
+
+const create = async (userId, { restaurantId, tableId, combinedWithTableId, date, guestsCount, comment, bonusesToSpend }) => {
+  const table = await prisma.table.findFirst({
+    where: { id: tableId, restaurantId },
+    include: { restaurant: { select: { name: true } } },
+  });
+  if (!table) throw ApiError.notFound('Столик не найден в этом ресторане');
+
+  const effectiveMax = table.maxCapacity || table.capacity;
+
+  // Combined table booking
+  if (combinedWithTableId) {
+    const table2 = await prisma.table.findFirst({ where: { id: combinedWithTableId, restaurantId } });
+    if (!table2) throw ApiError.notFound('Второй столик не найден');
+    const combinedCap = (table.capacity + table2.capacity) - 2;
+    const combinedMax = ((table.maxCapacity || table.capacity) + (table2.maxCapacity || table2.capacity)) - 2;
+    if (guestsCount > combinedMax)
+      throw ApiError.badRequest(`Объединённый стол рассчитан максимум на ${combinedMax} гостей`);
+    const conflict1 = await checkSlotConflict(tableId, date);
+    const conflict2 = await checkSlotConflict(combinedWithTableId, date);
+    if (conflict1 || conflict2) throw ApiError.conflict('Один из столиков уже занят на выбранное время');
+
+    const extraChair = guestsCount > combinedCap;
+    const depositAmount = calcDeposit(guestsCount);
+    let bonusesUsed = 0;
+    if (bonusesToSpend && bonusesToSpend > 0) {
+      const { balance } = await bonusesService.getBalance(userId);
+      bonusesUsed = Math.min(Math.floor(bonusesToSpend), balance, depositAmount);
+      if (bonusesUsed > 0) {
+        await bonusesService.spend(userId, bonusesUsed, `Оплата части депозита в "${table.restaurant.name}" бонусами`);
+      }
+    }
+    const reservation = await prisma.reservation.create({
+      data: { userId, restaurantId, tableId, combinedWithTableId, date: new Date(date), guestsCount, comment, bonusesUsed, extraChair },
+      include: RESERVATION_INCLUDE,
+    });
+    return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed, extraChair, combinedWithTableId };
+  }
+
+  // Single table — allow overflow up to maxCapacity
+  if (guestsCount > effectiveMax)
+    throw ApiError.badRequest(`Столик рассчитан максимум на ${effectiveMax} гостей`);
+
+  const conflict = await checkSlotConflict(tableId, date);
   if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
 
+  const extraChair = guestsCount > table.capacity;
   const depositAmount = calcDeposit(guestsCount);
   let bonusesUsed = 0;
 
@@ -59,20 +101,16 @@ const create = async (userId, { restaurantId, tableId, date, guestsCount, commen
     const { balance } = await bonusesService.getBalance(userId);
     bonusesUsed = Math.min(Math.floor(bonusesToSpend), balance, depositAmount);
     if (bonusesUsed > 0) {
-      await bonusesService.spend(
-        userId,
-        bonusesUsed,
-        `Оплата части депозита в "${table.restaurant.name}" бонусами`
-      );
+      await bonusesService.spend(userId, bonusesUsed, `Оплата части депозита в "${table.restaurant.name}" бонусами`);
     }
   }
 
   const reservation = await prisma.reservation.create({
-    data: { userId, restaurantId, tableId, date: new Date(date), guestsCount, comment, bonusesUsed },
+    data: { userId, restaurantId, tableId, date: new Date(date), guestsCount, comment, bonusesUsed, extraChair },
     include: RESERVATION_INCLUDE,
   });
 
-  return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed };
+  return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed, extraChair };
 };
 
 const update = async (id, userId, { date, guestsCount, tableId }) => {
@@ -94,17 +132,7 @@ const update = async (id, userId, { date, guestsCount, tableId }) => {
       throw ApiError.badRequest(`Столик рассчитан максимум на ${table.capacity} гостей`);
   }
 
-  const conflict = await prisma.reservation.findFirst({
-    where: {
-      tableId: checkTableId,
-      id: { not: id },
-      status: { in: ['PENDING', 'CONFIRMED'] },
-      date: {
-        gte: new Date(checkDate.getTime() - 2 * 60 * 60 * 1000),
-        lte: new Date(checkDate.getTime() + 2 * 60 * 60 * 1000),
-      },
-    },
-  });
+  const conflict = await checkSlotConflict(checkTableId, checkDate, id);
   if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
 
   return prisma.reservation.update({

@@ -95,13 +95,15 @@ model RestaurantImage {
 }
 
 model Table {
-  id           Int     @id @default(autoincrement())
-  restaurantId Int
-  number       Int
-  capacity     Int
-  isAvailable  Boolean @default(true)
-  posX         Float?
-  posY         Float?
+  id                Int     @id @default(autoincrement())
+  restaurantId      Int
+  number            Int
+  capacity          Int
+  maxCapacity       Int?
+  adjacentTableIds  Json    @default("[]")
+  isAvailable       Boolean @default(true)
+  posX              Float?
+  posY              Float?
 
   restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   reservations Reservation[]
@@ -134,9 +136,11 @@ model Reservation {
   date         DateTime
   guestsCount  Int
   status       ReservationStatus @default(PENDING)
-  comment      String?
-  bonusesUsed  Int               @default(0)
-  createdAt    DateTime          @default(now())
+  comment              String?
+  bonusesUsed          Int               @default(0)
+  extraChair           Boolean           @default(false)
+  combinedWithTableId  Int?
+  createdAt            DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)

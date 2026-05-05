@@ -195,6 +195,90 @@
   font-size: 0.8rem;
 }
 
+/* ─── Overflow / Merge hints ────────────────────────────── */
+.overflowWarning {
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 168, 60, 0.35);
+  background: rgba(220, 168, 60, 0.08);
+  color: rgba(242, 208, 100, 0.92);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.mergeSuggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.95rem;
+  border-radius: 10px;
+  border: 1px solid rgba(80, 200, 155, 0.3);
+  background: rgba(80, 200, 155, 0.07);
+}
+
+.mergeSuggestionIcon {
+  font-size: 1.1rem;
+  color: rgba(80, 210, 160, 0.9);
+  flex-shrink: 0;
+}
+
+.mergeSuggestionText {
+  flex: 1;
+  font-size: 0.84rem;
+  color: rgba(200, 230, 220, 0.9);
+  line-height: 1.45;
+}
+
+.mergeSuggestionText strong {
+  color: rgba(80, 210, 160, 0.95);
+}
+
+.mergeSuggestionBtn {
+  padding: 0.38rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(80, 200, 155, 0.55);
+  background: rgba(80, 200, 155, 0.12);
+  color: rgba(80, 210, 160, 0.95);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.mergeSuggestionBtn:hover {
+  background: rgba(80, 200, 155, 0.22);
+  border-color: rgba(80, 200, 155, 0.75);
+}
+
+.selectionBadgeMerge {
+  background: rgba(80, 200, 155, 0.12);
+  border-color: rgba(80, 200, 155, 0.45);
+  color: rgba(80, 210, 160, 0.95);
+}
+
+.mergeCancelBtn {
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.mergeCancelBtn:hover {
+  color: #f0f2f6;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.summaryOverflowNote {
+  font-size: 0.78rem !important;
+  color: rgba(242, 208, 100, 0.85) !important;
+}
+
 /* ─── Step 2: floor plan ────────────────────────────────── */
 .floorWrap {
   border-radius: 14px;

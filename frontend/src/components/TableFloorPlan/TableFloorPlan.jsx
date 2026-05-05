@@ -121,22 +121,25 @@ const LABELS = {
   booked: 'Занят на это время',
   disabled: 'Недоступен',
   small: 'Мало мест под состав гостей',
+  overflow: 'Свободен · понадобится дополнительное место',
   unknown: 'Занятость проверится после выбора даты и времени',
 };
 
 export function pickStatus(table, guestsCount) {
   if (!table.isAvailable) return 'disabled';
   const cap = Number(table.capacity) || 0;
+  const maxCap = Number(table.maxCapacity) || cap;
   const guests = Number(guestsCount) || 0;
-  if (guests > cap) return 'small';
+  if (guests > maxCap) return 'small';
   if (!table.slotKnown) return 'unknown';
   if (table.occupiedForSlot) return 'booked';
+  if (guests > cap) return 'overflow';
   return 'free';
 }
 
 export function canPreselectBookingTable(table, guestsCount) {
   const st = pickStatus(table, guestsCount);
-  return st === 'free' || st === 'unknown';
+  return st === 'free' || st === 'unknown' || st === 'overflow';
 }
 
 export function pickLayoutPreviewStatus(table) {
@@ -166,6 +169,14 @@ function TableFloorPlan({
   staticMode = false,
   /** JSON string from restaurant.hallSchema */
   hallSchema,
+  /** IDs of two tables forming a suggested merge pair (pulse effect) */
+  suggestedPairIds = null,
+  /** IDs of two tables selected as a merged pair (bridge + glow) */
+  selectedMergedIds = null,
+  /** Combined capacity to show on the merge bridge badge */
+  mergedCapacity = null,
+  /** Called when user clicks a table that is part of the suggested pair */
+  onSelectMergedPair = null,
 }) {
   const viewportRef = useRef(null);
   const dragRef = useRef(null);
@@ -238,15 +249,63 @@ function TableFloorPlan({
     ? pickLayoutPreviewStatus
     : (t) => pickStatus(t, guestsCount);
 
+  const suggestedSet  = useMemo(() => new Set(suggestedPairIds  || []), [suggestedPairIds]);
+  const mergedSet     = useMemo(() => new Set(selectedMergedIds || []), [selectedMergedIds]);
+
   const handleTableClick = (ev, layout) => {
     ev.stopPropagation();
     const { table } = layout;
     const st = statusForTable(table);
     setPopover({ id: table.id, screenX: ev.clientX, screenY: ev.clientY, table, st });
     if (layoutOnly && onSelectTable) onSelectTable(table.id);
-    if (!layoutOnly && onSelectTable && canPreselectBookingTable(table, guestsCount)) {
-      onSelectTable(table.id);
+    if (!layoutOnly) {
+      // If clicking a suggested pair table → trigger merge selection
+      if (suggestedSet.has(table.id) && onSelectMergedPair) {
+        onSelectMergedPair();
+        return;
+      }
+      if (onSelectTable && canPreselectBookingTable(table, guestsCount)) {
+        onSelectTable(table.id);
+      }
     }
+  };
+
+  const renderMergeBridge = () => {
+    if (!selectedMergedIds || selectedMergedIds.length < 2) return null;
+    const l1 = layouts.find((l) => l.table.id === selectedMergedIds[0]);
+    const l2 = layouts.find((l) => l.table.id === selectedMergedIds[1]);
+    if (!l1 || !l2) return null;
+    const cx1 = l1.x + l1.w / 2, cy1 = l1.y + l1.h / 2;
+    const cx2 = l2.x + l2.w / 2, cy2 = l2.y + l2.h / 2;
+    const midX = (cx1 + cx2) / 2;
+    const midY = (cy1 + cy2) / 2;
+    const bridgeH = Math.min(l1.h, l2.h) * 0.5;
+    const dx = cx2 - cx1, dy = cy2 - cy1;
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    const len   = Math.sqrt(dx * dx + dy * dy);
+    return (
+      <g className={styles.mergeBridge}>
+        {/* Connection fill */}
+        <rect
+          x={-len / 2} y={-bridgeH / 2}
+          width={len} height={bridgeH} rx={bridgeH / 2}
+          fill="rgba(80, 200, 155, 0.16)" stroke="none"
+          transform={`translate(${midX},${midY}) rotate(${angle})`}
+        />
+        {/* Capacity badge */}
+        <circle cx={midX} cy={midY} r={22}
+          fill="rgba(14, 22, 28, 0.85)"
+          stroke="rgba(80, 200, 155, 0.75)"
+          strokeWidth="1.5"
+        />
+        <text x={midX} y={midY - 4} textAnchor="middle" className={styles.tableCap} style={{ fontSize: '13px', fill: 'rgba(80,210,160,0.95)' }}>
+          {mergedCapacity}
+        </text>
+        <text x={midX} y={midY + 10} textAnchor="middle" className={styles.tableCapSub} style={{ fontSize: '9px' }}>
+          мест
+        </text>
+      </g>
+    );
   };
 
   const dimOthers = hoveredId != null;
@@ -363,7 +422,7 @@ function TableFloorPlan({
         <span className={styles.legendTitle}>{layoutOnly ? 'Схема зала' : 'Подсказка'}</span>
         {layoutOnly ? (
           <>
-            <span className={styles.legendItem}><i className={styles.dotFree} /> доступен для брони</span>
+            <span className={styles.legendItem}><i className={styles.dotFree} /> доступен</span>
             <span className={styles.legendItem}><i className={styles.dotBooked} /> недоступен</span>
             <span className={styles.legendItem}><i className={styles.dotChosen} /> выбран стол</span>
           </>
@@ -371,6 +430,8 @@ function TableFloorPlan({
           <>
             <span className={styles.legendItem}><i className={styles.dotFree} /> свободен</span>
             <span className={styles.legendItem}><i className={styles.dotBooked} /> занят</span>
+            <span className={styles.legendItem}><i className={styles.dotOverflow} /> +1 место</span>
+            <span className={styles.legendItem}><i className={styles.dotMerge} /> объединить</span>
             <span className={styles.legendItem}><i className={styles.dotChosen} /> выбран</span>
           </>
         )}
@@ -410,17 +471,38 @@ function TableFloorPlan({
           <g transform={`translate(${view.px}, ${view.py}) scale(${view.k})`}>
             {renderHallOutline()}
 
+            {/* Merge bridge drawn under table shapes */}
+            {renderMergeBridge()}
+
             {layouts.map((layout) => {
               const { table, x, y, w, h, rx } = layout;
               const st = statusForTable(table);
-              const selected = selectedTableId === table.id;
+              const selected = selectedTableId === table.id || mergedSet.has(table.id);
               const hovered = hoveredId === table.id;
+              const isMerged    = mergedSet.has(table.id);
+              const isSuggested = !isMerged && suggestedSet.has(table.id);
+
               let shapeClass = styles.shapeFree;
-              if (st === 'booked' || st === 'disabled') shapeClass = styles.shapeBooked;
-              else if (st === 'unknown') shapeClass = styles.shapeUnknown;
-              else if (st === 'small') shapeClass = styles.shapeSmall;
-              if (layoutOnly && selected) shapeClass = styles.shapeSelected;
-              else if (selected && (st === 'free' || st === 'unknown')) shapeClass = styles.shapeSelected;
+              if (isMerged) {
+                shapeClass = styles.shapeMerged;
+              } else if (isSuggested) {
+                shapeClass = styles.shapeSuggested;
+              } else if (st === 'booked' || st === 'disabled') {
+                shapeClass = styles.shapeBooked;
+              } else if (st === 'unknown') {
+                shapeClass = styles.shapeUnknown;
+              } else if (st === 'small') {
+                shapeClass = styles.shapeSmall;
+              } else if (st === 'overflow') {
+                shapeClass = selected ? styles.shapeSelected : styles.shapeOverflow;
+              }
+
+              if (!isMerged && !isSuggested) {
+                if (layoutOnly && selected) shapeClass = styles.shapeSelected;
+                else if (selected && (st === 'free' || st === 'unknown' || st === 'overflow')) shapeClass = styles.shapeSelected;
+              }
+
+              const isClickable = layoutOnly || canPreselectBookingTable(table, guestsCount) || suggestedSet.has(table.id);
 
               return (
                 <g
@@ -428,9 +510,7 @@ function TableFloorPlan({
                   data-table={table.id}
                   className={`${styles.tableGroup} ${hovered ? styles.tableHovered : ''} ${dimOthers && hoveredId !== table.id ? styles.peerFade : ''}`}
                   transform={`translate(${x}, ${y})`}
-                  style={{
-                    cursor: layoutOnly || canPreselectBookingTable(table, guestsCount) ? 'pointer' : 'default',
-                  }}
+                  style={{ cursor: isClickable ? 'pointer' : 'default' }}
                   onMouseEnter={() => setHoveredId(table.id)}
                   onMouseLeave={() => setHoveredId(null)}
                   onClick={(ev) => handleTableClick(ev, layout)}
@@ -438,13 +518,13 @@ function TableFloorPlan({
                   <rect
                     className={`${styles.tableShape} ${shapeClass}`}
                     width={w} height={h} rx={rx}
-                    filter={selected && (layoutOnly || st === 'free' || st === 'unknown') ? 'url(#tableGlow)' : undefined}
+                    filter={selected && (layoutOnly || st === 'free' || st === 'unknown' || st === 'overflow' || isMerged) ? 'url(#tableGlow)' : undefined}
                   />
                   <text x={w / 2} y={h / 2 - 6} textAnchor="middle" className={styles.tableCap}>
                     {table.number}
                   </text>
                   <text x={w / 2} y={h / 2 + 12} textAnchor="middle" className={styles.tableCapSub}>
-                    до {table.capacity}
+                    до {isMerged ? (table.maxCapacity || table.capacity) : table.capacity}
                   </text>
                 </g>
               );

@@ -262,6 +262,55 @@
   cursor: pointer;
 }
 
+/* ─── Overflow / Merge styles ───────────────────────────────────── */
+.shapeOverflow {
+  fill: rgba(220, 168, 60, 0.14);
+  stroke: rgba(220, 168, 60, 0.78);
+  stroke-width: 1.6;
+}
+
+.shapeMerged {
+  fill: rgba(80, 200, 155, 0.22);
+  stroke: rgba(80, 200, 155, 0.92);
+  stroke-width: 2.2;
+  animation: mergeGlow 2s ease-in-out infinite;
+}
+
+.shapeSuggested {
+  fill: rgba(80, 200, 155, 0.1);
+  stroke: rgba(80, 200, 155, 0.72);
+  stroke-width: 1.7;
+  animation: pairPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pairPulse {
+  0%, 100% { opacity: 1; stroke-opacity: 0.72; }
+  50%       { opacity: 0.52; stroke-opacity: 0.38; }
+}
+
+@keyframes mergeGlow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(80, 200, 155, 0.25)); }
+  50%       { filter: drop-shadow(0 0 14px rgba(80, 200, 155, 0.6)); }
+}
+
+.dotOverflow {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(220, 168, 60, 0.75);
+  background: rgba(220, 168, 60, 0.12);
+}
+
+.dotMerge {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(80, 200, 155, 0.75);
+  background: rgba(80, 200, 155, 0.12);
+}
+
 /* ─── Custom hall schema decoration ────────────────────────────── */
 .objLabel {
   fill: rgba(240, 235, 220, 0.72);

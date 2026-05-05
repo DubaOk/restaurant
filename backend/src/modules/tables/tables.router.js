@@ -20,6 +20,7 @@ const updateRules = [
 router.get('/restaurant/:restaurantId', controller.getByRestaurant);
 router.post('/', authenticate, authorize('OWNER'), createRules, controller.create);
 router.put('/:id', authenticate, authorize('OWNER'), updateRules, controller.update);
+router.patch('/:id/adjacency', authenticate, authorize('OWNER'), controller.updateAdjacency);
 router.delete('/:id', authenticate, authorize('OWNER'), controller.remove);
 
 module.exports = router;

@@ -19,6 +19,10 @@ export const tablesApi = {
    */
   update: (id, payload) => api.put(`/tables/${id}`, payload),
 
+  /** Ресторатор: задать соседние столы (для объединения) */
+  updateAdjacency: (id, adjacentTableIds) =>
+    api.patch(`/tables/${id}/adjacency`, { adjacentTableIds }),
+
   /** Ресторатор: удалить стол */
   remove: (id) => api.delete(`/tables/${id}`),
 };

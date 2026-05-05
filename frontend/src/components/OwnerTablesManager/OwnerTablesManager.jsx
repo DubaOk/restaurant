@@ -102,6 +102,7 @@ function toSvgCoords(svgEl, clientX, clientY) {
 const rowDraft = (t) => ({
   number: t.number,
   capacity: t.capacity,
+  maxCapacity: t.maxCapacity ?? '',
   isAvailable: t.isAvailable,
 });
 
@@ -117,6 +118,9 @@ const OwnerTablesManager = ({ restaurantId }) => {
   const [newTable, setNewTable] = useState({ number: 1, capacity: 4, isAvailable: true });
   const [tablePendingDelete, setTablePendingDelete] = useState(null);
   const [schemeId, setSchemeId] = useState(FLOOR_SCHEMES[0].id);
+  // adjacency: selectedId → Set of adjacent table IDs
+  const [adjacencyMap, setAdjacencyMap] = useState({}); // {tableId: number[]}
+  const [savingAdjacency, setSavingAdjacency] = useState(false);
 
   // Custom hall: schema loaded from localStorage via HallEditor's own key
   const [customSchema, setCustomSchema] = useState(null); // { polygonPoints, entranceLine }
@@ -137,6 +141,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
       const list = data.data || [];
       setTables(list);
       setRows(Object.fromEntries(list.map((t) => [t.id, rowDraft(t)])));
+      setAdjacencyMap(Object.fromEntries(list.map((t) => [t.id, Array.isArray(t.adjacentTableIds) ? t.adjacentTableIds : []])));
       setDragPos({});
       setSelectedId((prev) => {
         if (prev && list.some((t) => t.id === prev)) return prev;
@@ -397,11 +402,18 @@ const OwnerTablesManager = ({ restaurantId }) => {
     setSavingId(selectedId);
     setError('');
     try {
-      const { data } = await tablesApi.update(selectedId, {
+      const payload = {
         number: Number(selectedRow.number),
         capacity: Number(selectedRow.capacity),
         isAvailable: Boolean(selectedRow.isAvailable),
-      });
+      };
+      const mc = parseInt(selectedRow.maxCapacity, 10);
+      if (!isNaN(mc) && mc >= Number(selectedRow.capacity)) {
+        payload.maxCapacity = mc;
+      } else {
+        payload.maxCapacity = null;
+      }
+      const { data } = await tablesApi.update(selectedId, payload);
       const updated = data.data;
       setTables((prev) =>
         prev.map((x) => (x.id === updated.id ? { ...updated, slotKnown: false, occupiedForSlot: null } : x))
@@ -414,13 +426,67 @@ const OwnerTablesManager = ({ restaurantId }) => {
     }
   };
 
+  const saveAdjacency = async () => {
+    if (!selectedId) return;
+    setSavingAdjacency(true);
+    setError('');
+    try {
+      const adjIds = adjacencyMap[selectedId] || [];
+      await tablesApi.updateAdjacency(selectedId, adjIds);
+      // Reflect on the other side too (bidirectional)
+      const toAdd = adjIds;
+      const updated = { ...adjacencyMap };
+      tables.forEach((t) => {
+        if (t.id === selectedId) return;
+        const existing = [...(updated[t.id] || [])];
+        if (toAdd.includes(t.id)) {
+          if (!existing.includes(selectedId)) existing.push(selectedId);
+        } else {
+          const idx = existing.indexOf(selectedId);
+          if (idx !== -1) existing.splice(idx, 1);
+        }
+        updated[t.id] = existing;
+      });
+      setAdjacencyMap(updated);
+      // Persist other side to backend silently
+      tables.forEach((t) => {
+        if (t.id === selectedId) return;
+        tablesApi.updateAdjacency(t.id, updated[t.id] || []).catch(() => {});
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Не удалось сохранить связи');
+    } finally {
+      setSavingAdjacency(false);
+    }
+  };
+
+  const toggleAdjacent = (otherId) => {
+    setAdjacencyMap((prev) => {
+      const current = [...(prev[selectedId] || [])];
+      const idx = current.indexOf(otherId);
+      if (idx === -1) current.push(otherId);
+      else current.splice(idx, 1);
+      return { ...prev, [selectedId]: current };
+    });
+  };
+
   const isSelectedDirty = () => {
     if (!selectedTable || !selectedRow) return false;
+    const mcChanged = String(selectedRow.maxCapacity ?? '') !== String(selectedTable.maxCapacity ?? '');
     return (
       Number(selectedRow.number) !== selectedTable.number ||
       Number(selectedRow.capacity) !== selectedTable.capacity ||
-      Boolean(selectedRow.isAvailable) !== Boolean(selectedTable.isAvailable)
+      Boolean(selectedRow.isAvailable) !== Boolean(selectedTable.isAvailable) ||
+      mcChanged
     );
+  };
+
+  const isAdjacencyDirty = () => {
+    if (!selectedId) return false;
+    const current = adjacencyMap[selectedId] || [];
+    const original = Array.isArray(selectedTable?.adjacentTableIds) ? selectedTable.adjacentTableIds : [];
+    if (current.length !== original.length) return true;
+    return !current.every((id) => original.includes(id));
   };
 
   // ─── Create ───────────────────────────────────────────────────
@@ -630,6 +696,27 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   </>
                 )}
 
+                {/* Adjacency lines */}
+                {layouts.map((l1) => {
+                  const adjIds = adjacencyMap[l1.table.id] || [];
+                  return adjIds.map((adjId) => {
+                    if (adjId <= l1.table.id) return null; // draw once per pair
+                    const l2 = layouts.find((x) => x.table.id === adjId);
+                    if (!l2) return null;
+                    return (
+                      <line
+                        key={`adj-${l1.table.id}-${adjId}`}
+                        x1={l1.cx} y1={l1.cy}
+                        x2={l2.cx} y2={l2.cy}
+                        stroke="rgba(80, 200, 155, 0.45)"
+                        strokeWidth="2"
+                        strokeDasharray="6 5"
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    );
+                  });
+                })}
+
                 {/* Tables */}
                 {layouts.map((layout) => {
                   const { table, x, y, w, h, rx, cx, cy } = layout;
@@ -714,6 +801,19 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     onChange={(e) => handleRowChange(selectedId, { capacity: e.target.value })}
                   />
                 </div>
+                <div className={styles.panelField}>
+                  <label className={styles.panelLabel}>Макс. с доп. местом</label>
+                  <input
+                    className={styles.panelInput}
+                    type="number"
+                    min={selectedRow.capacity || 1}
+                    max={50}
+                    value={selectedRow.maxCapacity}
+                    placeholder={`${selectedRow.capacity} (без буфера)`}
+                    onChange={(e) => handleRowChange(selectedId, { maxCapacity: e.target.value })}
+                  />
+                  <span className={styles.panelInputHint}>Если гостей чуть больше вместимости — добавим стул</span>
+                </div>
                 <label className={styles.panelCheck}>
                   <input
                     type="checkbox"
@@ -754,6 +854,42 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     ? `Позиция: ${Math.round(selectedTable.posX)}, ${Math.round(selectedTable.posY)}`
                     : 'Позиция: авто'}
                 </p>
+
+                {/* ── Adjacency ─────────────────────────────── */}
+                {tables.length > 1 && (
+                  <div className={styles.adjacencyBox}>
+                    <p className={styles.adjacencyTitle}>Соседние столы (объединение)</p>
+                    <p className={styles.adjacencyHint}>
+                      Отметьте столы, которые можно физически сдвинуть для больших компаний
+                    </p>
+                    <div className={styles.adjacencyList}>
+                      {tables
+                        .filter((t) => t.id !== selectedId)
+                        .map((t) => {
+                          const checked = (adjacencyMap[selectedId] || []).includes(t.id);
+                          return (
+                            <label key={t.id} className={styles.adjacencyItem}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleAdjacent(t.id)}
+                              />
+                              <span>Стол №{t.number} ({t.capacity} мест)</span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.btnGold}
+                      style={{ marginTop: '0.5rem' }}
+                      disabled={!isAdjacencyDirty() || savingAdjacency}
+                      onClick={saveAdjacency}
+                    >
+                      {savingAdjacency ? 'Сохраняем…' : 'Сохранить связи'}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <p className={styles.panelPlaceholder}>

@@ -4,11 +4,11 @@ const tablesService = require('./tables.service');
 
 const getByRestaurant = async (req, res, next) => {
   try {
-    const tables = await tablesService.getByRestaurant(
+    const result = await tablesService.getByRestaurant(
       parseInt(req.params.restaurantId, 10),
       req.query.at || null
     );
-    res.json({ success: true, data: tables });
+    res.json({ success: true, data: result.tables, adjacentPairs: result.adjacentPairs });
   } catch (err) {
     next(err);
   }
@@ -47,4 +47,15 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { getByRestaurant, create, update, remove };
+const updateAdjacency = async (req, res, next) => {
+  try {
+    const table = await tablesService.update(parseInt(req.params.id, 10), req.user.id, {
+      adjacentTableIds: req.body.adjacentTableIds ?? [],
+    });
+    res.json({ success: true, data: table });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getByRestaurant, create, update, updateAdjacency, remove };

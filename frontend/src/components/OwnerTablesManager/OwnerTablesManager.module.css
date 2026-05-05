@@ -316,6 +316,61 @@
   margin: 0;
 }
 
+.panelInputHint {
+  font-size: 0.67rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+/* ─── Adjacency ──────────────────────────────────────────────── */
+.adjacencyBox {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(80, 200, 155, 0.22);
+  background: rgba(80, 200, 155, 0.05);
+}
+
+.adjacencyTitle {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(80, 210, 160, 0.88);
+}
+
+.adjacencyHint {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.adjacencyList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.adjacencyItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: #c8cdd6;
+  cursor: pointer;
+  user-select: none;
+}
+
+.adjacencyItem input[type="checkbox"] {
+  accent-color: rgba(80, 200, 155, 0.9);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .panelPlaceholder {
   font-size: 0.82rem;
   color: #9aa3b2;
