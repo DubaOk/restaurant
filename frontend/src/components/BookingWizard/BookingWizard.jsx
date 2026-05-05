@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { reservationsApi } from '../../api/reservations.api';
 import { tablesApi } from '../../api/tables.api';
-import { useAuth } from '../../context/AuthContext';
 import TableFloorPlan, { pickStatus, canPreselectBookingTable } from '../TableFloorPlan/TableFloorPlan';
 import DatePicker from '../DatePicker/DatePicker';
+import TimePicker from '../TimePicker/TimePicker';
 import styles from './BookingWizard.module.css';
 
 const STEP_LABELS = ['Дата и время', 'Выбор столика', 'Подтверждение'];
@@ -45,7 +45,6 @@ const BookingWizard = ({
   closeTime,
   hallSchema,
 }) => {
-  const { user } = useAuth();
   const [step, setStep] = useState(0);
 
   const [date, setDate]             = useState('');
@@ -179,11 +178,13 @@ const BookingWizard = ({
             </div>
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Время</label>
-              <input
-                type="time"
-                className={styles.timeInput}
+              <TimePicker
                 value={time}
-                onChange={(e) => { setTime(e.target.value); setError(''); }}
+                onChange={(t) => { setTime(t); setError(''); }}
+                openTime={openTime}
+                closeTime={closeTime}
+                placeholder="Выберите время"
+                popupAlign="end"
               />
               {openTime && closeTime && (
                 <span className={styles.timeHint}>Работает: {openTime} – {closeTime}</span>

@@ -91,6 +91,17 @@
   position: relative;
 }
 
+.suggestLoading {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.68rem;
+  color: #9aa3b2;
+  pointer-events: none;
+}
+
+
 .suggestList {
   position: absolute;
   top: calc(100% + 4px);

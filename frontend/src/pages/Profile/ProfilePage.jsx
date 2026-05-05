@@ -3,16 +3,26 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../api/auth.api';
 import { favoritesApi } from '../../api/favorites.api';
+import { reservationsApi } from '../../api/reservations.api';
 import { restaurantsApi } from '../../api/restaurants.api';
 import Navbar from '../../components/Navbar/Navbar';
 import { formatUserRole } from '../../utils/formatUserRole';
 import styles from './ProfilePage.module.css';
+
+const RES_STATUS_LABELS = {
+  PENDING: 'Ожидает',
+  CONFIRMED: 'Подтверждено',
+  CANCELLED: 'Отменено',
+  COMPLETED: 'Завершено',
+};
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuth();
 
   const [form, setForm] = useState({ name: user?.name || '', phone: user?.phone || '' });
   const [favorites, setFavorites] = useState([]);
+  const [reservationsPreview, setReservationsPreview] = useState([]);
+  const [reservationsLoading, setReservationsLoading] = useState(true);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -49,9 +59,26 @@ const ProfilePage = () => {
   }, [ownerPlaces]);
 
   useEffect(() => {
-    if (user?.role === 'CLIENT') {
-      favoritesApi.getMyFavorites().then(({ data }) => setFavorites(data.data)).catch(() => {});
+    if (user?.role !== 'CLIENT') {
+      setReservationsLoading(false);
+      return;
     }
+    favoritesApi.getMyFavorites().then(({ data }) => setFavorites(data.data)).catch(() => {});
+    setReservationsLoading(true);
+    reservationsApi
+      .getMyReservations()
+      .then(({ data }) => {
+        const list = data.data || [];
+        const sorted = [...list].sort((a, b) => {
+          const ap = ['PENDING', 'CONFIRMED'].includes(a.status) ? 0 : 1;
+          const bp = ['PENDING', 'CONFIRMED'].includes(b.status) ? 0 : 1;
+          if (ap !== bp) return ap - bp;
+          return new Date(b.date) - new Date(a.date);
+        });
+        setReservationsPreview(sorted.slice(0, 6));
+      })
+      .catch(() => setReservationsPreview([]))
+      .finally(() => setReservationsLoading(false));
   }, [user]);
 
   const handleChange = (e) => {
@@ -133,7 +160,9 @@ const ProfilePage = () => {
     <>
       <Navbar />
       <main className={styles.shell}>
-        <div className={`${styles.inner} ${user?.role === 'OWNER' ? styles.innerWide : ''}`}>
+        <div
+          className={`${styles.inner} ${user?.role === 'OWNER' ? styles.innerWide : ''} ${user?.role === 'CLIENT' ? styles.innerClient : ''}`}
+        >
           <h1 className={styles.title}>
             {user?.role === 'OWNER' ? 'Профиль ресторатора' : 'Мой профиль'}
           </h1>
@@ -245,81 +274,180 @@ const ProfilePage = () => {
                 )}
               </section>
             </div>
-          ) : (
-          <div className={styles.grid}>
+          ) : user?.role === 'CLIENT' ? (
+            <div className={styles.clientLayout}>
+              <div className={styles.clientMain}>
+                <section className={styles.card}>
+                  <h2>Контакты и учётная запись</h2>
+                  {avatarBlock}
 
-            <section className={styles.card}>
-              <h2>Контакты и учётная запись</h2>
-              {avatarBlock}
+                  {success && <p className={styles.success}>{success}</p>}
+                  {error && <p className={styles.error}>{error}</p>}
 
-              {success && <p className={styles.success}>{success}</p>}
-              {error && <p className={styles.error}>{error}</p>}
+                  <form onSubmit={handleSubmit} className={styles.form}>
+                    <div className={styles.field}>
+                      <label>Имя</label>
+                      <input name="name" value={form.name} onChange={handleChange} required />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Телефон</label>
+                      <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Email</label>
+                      <input value={user?.email || ''} disabled />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Роль в сервисе</label>
+                      <input value={formatUserRole(user?.role)} disabled />
+                    </div>
+                    <button type="submit" className={styles.btn} disabled={saving}>
+                      {saving ? 'Сохранение...' : 'Сохранить'}
+                    </button>
+                  </form>
+                </section>
+              </div>
 
-              <form onSubmit={handleSubmit} className={styles.form}>
-                <div className={styles.field}>
-                  <label>Имя</label>
-                  <input name="name" value={form.name} onChange={handleChange} required />
-                </div>
-                <div className={styles.field}>
-                  <label>Телефон</label>
-                  <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
-                </div>
-                <div className={styles.field}>
-                  <label>Email</label>
-                  <input value={user?.email || ''} disabled />
-                </div>
-                <div className={styles.field}>
-                  <label>Роль в сервисе</label>
-                  <input value={formatUserRole(user?.role)} disabled />
-                </div>
-                <button type="submit" className={styles.btn} disabled={saving}>
-                  {saving ? 'Сохранение...' : 'Сохранить'}
-                </button>
-              </form>
-            </section>
+              <aside className={styles.clientAside}>
+                <section className={`${styles.card} ${styles.clientHighlightCard}`}>
+                  <h2>Быстрые действия</h2>
+                  <div className={styles.quickGrid}>
+                    <Link to="/reservations" className={styles.quickTile}>
+                      <span className={styles.quickIcon}>◷</span>
+                      <span className={styles.quickTitle}>Мои брони</span>
+                      <span className={styles.quickDesc}>Статусы и изменения</span>
+                    </Link>
+                    <Link to="/restaurants" className={styles.quickTile}>
+                      <span className={styles.quickIcon}>◎</span>
+                      <span className={styles.quickTitle}>Заведения</span>
+                      <span className={styles.quickDesc}>Подбор и бронь</span>
+                    </Link>
+                  </div>
+                </section>
 
-            {user?.role === 'CLIENT' && (
-              <section className={`${styles.card} ${styles.cardWide}`}>
-                <h2>Избранные заведения</h2>
-                {favorites.length === 0 ? (
-                  <p className={styles.empty}>В избранном пока ничего нет</p>
-                ) : (
-                  <ul className={styles.favList}>
-                    {favorites.map((fav) => (
-                      <li key={fav.id} className={styles.favItem}>
-                        {fav.restaurant?.imageUrl && (
-                          <img
-                            src={fav.restaurant.imageUrl}
-                            alt={fav.restaurant.name}
-                            className={styles.favImg}
-                          />
-                        )}
-                        <div className={styles.favInfo}>
-                          <Link to={`/restaurants/${fav.restaurantId}`} className={styles.favName}>
-                            {fav.restaurant?.name}
-                          </Link>
-                          <span className={styles.favMeta}>
-                            {fav.restaurant?.cuisine}
-                            {fav.restaurant?.city ? ` · ${fav.restaurant.city}` : ''} · {fav.restaurant?.address}
+                <section className={styles.card}>
+                  <div className={styles.cardHeadRow}>
+                    <h2>Ближайшие бронирования</h2>
+                    <Link to="/reservations" className={styles.cardHeadLink}>Все →</Link>
+                  </div>
+                  {reservationsLoading ? (
+                    <p className={styles.mutedLine}>Загрузка…</p>
+                  ) : reservationsPreview.length === 0 ? (
+                    <div className={styles.emptyBlock}>
+                      <p className={styles.empty}>Пока нет бронирований</p>
+                      <Link to="/restaurants" className={styles.emptyCta}>Выбрать ресторан</Link>
+                    </div>
+                  ) : (
+                    <ul className={styles.resPreviewList}>
+                      {reservationsPreview.map((r) => (
+                        <li key={r.id} className={styles.resPreviewItem}>
+                          <div className={styles.resPreviewMain}>
+                            <Link to={`/restaurants/${r.restaurantId}`} className={styles.resPreviewName}>
+                              {r.restaurant?.name || 'Ресторан'}
+                            </Link>
+                            <span className={styles.resPreviewMeta}>
+                              {new Date(r.date).toLocaleString('ru-RU', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                              {r.table ? ` · стол №${r.table.number}` : ''}
+                              {r.guestsCount ? ` · ${r.guestsCount} гост.` : ''}
+                            </span>
+                          </div>
+                          <span className={`${styles.resBadge} ${styles[`res_${(r.status || '').toLowerCase()}`]}`}>
+                            {RES_STATUS_LABELS[r.status] || r.status}
                           </span>
-                          {fav.restaurant?.avgRating && (
-                            <span className={styles.favRating}>★ {Number(fav.restaurant.avgRating).toFixed(1)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className={styles.card}>
+                  <div className={styles.cardHeadRow}>
+                    <h2>Избранные заведения</h2>
+                    {favorites.length > 0 && (
+                      <Link to="/restaurants" className={styles.cardHeadLink}>Каталог →</Link>
+                    )}
+                  </div>
+                  {favorites.length === 0 ? (
+                    <div className={styles.emptyBlock}>
+                      <p className={styles.empty}>В избранном пока ничего нет</p>
+                      <Link to="/restaurants" className={styles.emptyCta}>Добавить из каталога</Link>
+                    </div>
+                  ) : (
+                    <ul className={styles.favList}>
+                      {favorites.map((fav) => (
+                        <li key={fav.id} className={styles.favItem}>
+                          {fav.restaurant?.imageUrl && (
+                            <img
+                              src={fav.restaurant.imageUrl}
+                              alt={fav.restaurant.name}
+                              className={styles.favImg}
+                            />
                           )}
-                        </div>
-                        <button
-                          type="button"
-                          className={styles.favRemove}
-                          onClick={() => handleRemoveFavorite(fav.restaurantId)}
-                        >
-                          ♥
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                          <div className={styles.favInfo}>
+                            <Link to={`/restaurants/${fav.restaurantId}`} className={styles.favName}>
+                              {fav.restaurant?.name}
+                            </Link>
+                            <span className={styles.favMeta}>
+                              {fav.restaurant?.cuisine}
+                              {fav.restaurant?.city ? ` · ${fav.restaurant.city}` : ''}
+                              {fav.restaurant?.address ? ` · ${fav.restaurant.address}` : ''}
+                            </span>
+                            {fav.restaurant?.avgRating && (
+                              <span className={styles.favRating}>★ {Number(fav.restaurant.avgRating).toFixed(1)}</span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.favRemove}
+                            onClick={() => handleRemoveFavorite(fav.restaurantId)}
+                            aria-label="Убрать из избранного"
+                          >
+                            ♥
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </aside>
+            </div>
+          ) : (
+            <div className={styles.grid}>
+              <section className={styles.card}>
+                <h2>Контакты и учётная запись</h2>
+                {avatarBlock}
+
+                {success && <p className={styles.success}>{success}</p>}
+                {error && <p className={styles.error}>{error}</p>}
+
+                <form onSubmit={handleSubmit} className={styles.form}>
+                  <div className={styles.field}>
+                    <label>Имя</label>
+                    <input name="name" value={form.name} onChange={handleChange} required />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Телефон</label>
+                    <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Email</label>
+                    <input value={user?.email || ''} disabled />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Роль в сервисе</label>
+                    <input value={formatUserRole(user?.role)} disabled />
+                  </div>
+                  <button type="submit" className={styles.btn} disabled={saving}>
+                    {saving ? 'Сохранение...' : 'Сохранить'}
+                  </button>
+                </form>
               </section>
-            )}
-          </div>
+            </div>
           )}
         </div>
       </main>

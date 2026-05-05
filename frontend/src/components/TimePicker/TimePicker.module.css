@@ -1,10 +1,11 @@
+/* Mirrors DatePicker.module.css for visual parity */
+
 .root {
   position: relative;
   display: inline-block;
   width: 100%;
 }
 
-/* ── Trigger button ─────────────────────────────────────────── */
 .trigger {
   display: flex;
   align-items: center;
@@ -40,6 +41,7 @@
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
+  opacity: 0.9;
 }
 
 .triggerArrow {
@@ -56,13 +58,13 @@
   color: #f2d09a;
 }
 
-/* ── Pop-up calendar ────────────────────────────────────────── */
 .popup {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: 400;
   width: 280px;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(10, 13, 20, 0.98);
@@ -72,104 +74,121 @@
   -webkit-backdrop-filter: blur(14px);
 }
 
-/* ── Header (month nav) ─────────────────────────────────────── */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.85rem;
+.popupAlignEnd {
+  left: auto;
+  right: 0;
 }
 
-.monthLabel {
+.popupTitle {
+  text-align: center;
   font-size: 0.85rem;
   font-weight: 600;
   color: #f2d09a;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
 }
 
-.navBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: #9aa3b2;
-  font-size: 1.15rem;
-  cursor: pointer;
-  transition: border-color 0.16s, color 0.16s;
-  line-height: 1;
-}
-
-.navBtn:hover {
-  border-color: rgba(242, 208, 154, 0.4);
-  color: #f2d09a;
-}
-
-/* ── Day grid ───────────────────────────────────────────────── */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-
-.weekday {
-  text-align: center;
+.subLabel {
   font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(160, 168, 185, 0.55);
-  padding: 0.25rem 0 0.4rem;
+  margin: 0.35rem 0 0.4rem;
 }
 
-.day {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
+.subLabel:first-of-type {
+  margin-top: 0;
+}
+
+.hourGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  margin-bottom: 0.35rem;
+}
+
+.hourBtn {
   aspect-ratio: 1;
+  min-width: 0;
   border-radius: 7px;
   border: 1px solid transparent;
   background: transparent;
   color: #c8cdd8;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   cursor: pointer;
   transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
 
-.day:hover:not(:disabled) {
+.hourBtn:hover {
   background: rgba(242, 208, 154, 0.12);
   border-color: rgba(242, 208, 154, 0.28);
   color: #f2d09a;
 }
 
-.dayToday {
-  border-color: rgba(242, 208, 154, 0.35);
+.minRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.minBtn {
+  padding: 0.45rem 0.25rem;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #c8cdd8;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.minBtn:hover {
+  background: rgba(242, 208, 154, 0.12);
+  border-color: rgba(242, 208, 154, 0.28);
   color: #f2d09a;
 }
 
-.daySelected {
-  border-color: rgba(242, 208, 154, 0.78);
-  color: #f2d09a;
+/* Selected: thin gold ring + gold text (same as DatePicker daySelected) */
+.cellSelected {
+  border-color: rgba(242, 208, 154, 0.75) !important;
+  color: #f2d09a !important;
   font-weight: 600;
   background: rgba(242, 208, 154, 0.06);
 }
 
-.daySelected:hover:not(:disabled) {
-  background: rgba(242, 208, 154, 0.1);
+.slotList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(52vh, 280px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.slotBtn {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #c8cdd8;
+  font-size: 0.82rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.slotBtn:hover {
+  background: rgba(242, 208, 154, 0.12);
+  border-color: rgba(242, 208, 154, 0.28);
   color: #f2d09a;
 }
 
-.dayDisabled {
-  color: rgba(160, 168, 185, 0.25);
-  cursor: not-allowed;
-}
-
-.dayDisabled:hover {
-  background: transparent;
-  border-color: transparent;
-  color: rgba(160, 168, 185, 0.25);
+.slotBtnSelected {
+  border-color: rgba(242, 208, 154, 0.75);
+  color: #f2d09a;
+  font-weight: 600;
+  background: rgba(242, 208, 154, 0.06);
 }

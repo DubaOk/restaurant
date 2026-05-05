@@ -179,33 +179,6 @@
   color: #9aa3b2;
 }
 
-/* ─── Time input (styled to match DatePicker trigger) ───── */
-.timeInput {
-  padding: 0.55rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(14, 18, 26, 0.75);
-  color: #e0e4ec;
-  font-size: 0.88rem;
-  font-family: inherit;
-  outline: none;
-  color-scheme: dark;
-  width: 100%;
-  box-sizing: border-box;
-  transition: border-color 0.18s, box-shadow 0.18s;
-  cursor: pointer;
-}
-
-.timeInput:hover {
-  border-color: rgba(242, 208, 154, 0.4);
-  background: rgba(20, 25, 36, 0.85);
-}
-
-.timeInput:focus {
-  border-color: rgba(242, 208, 154, 0.65);
-  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.12);
-}
-
 .timeHint {
   font-size: 0.68rem;
   color: rgba(160, 168, 185, 0.65);

@@ -342,11 +342,10 @@
   margin-top: 0.75rem;
   padding: 0 clamp(0.65rem, 3vw, 2rem) 2.25rem;
   box-sizing: border-box;
-  background:
-    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(28, 48, 78, 0.28), transparent 60%),
-    #0a0d14;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  /* Сливаем с основным фоном страницы (.pageShell), без отдельного «синего» блока */
+  background: #0e1116;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
   display: flex;
   flex-direction: column;
 }
@@ -364,8 +363,12 @@
 
 .bookingHeader {
   padding: 1rem 0 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: 1rem;
+}
+
+.bookingHeader .sectionTitle {
+  color: #f5f5f7;
 }
 
 .content {

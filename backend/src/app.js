@@ -18,6 +18,7 @@ const favoritesRouter = require('./modules/favorites/favorites.router');
 const bonusesRouter = require('./modules/bonuses/bonuses.router');
 const promotionsRouter = require('./modules/promotions/promotions.router');
 const analyticsRouter = require('./modules/analytics/analytics.router');
+const geoRouter = require('./modules/geo/geo.router');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/favorites', favoritesRouter);
 app.use('/api/bonuses', bonusesRouter);
 app.use('/api/promotions', promotionsRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/geo', geoRouter);
 
 app.use(errorHandler);
 
