@@ -245,8 +245,14 @@ const OwnerTablesManager = ({ restaurantId }) => {
     setSchemeId(nextId);
     if (nextId === 'custom') {
       setEditingHall(!(customSchema?.polygonPoints?.length >= 3));
+      if (customSchema?.polygonPoints?.length >= 3) {
+        restaurantsApi.updateHallSchema(restaurantId, JSON.stringify(customSchema)).catch(() => {});
+      }
     } else {
       setEditingHall(false);
+      restaurantsApi
+        .updateHallSchema(restaurantId, JSON.stringify({ templateId: nextId }))
+        .catch(() => {});
     }
     localStorage.setItem(`${SCHEME_STORAGE_PREFIX}:${restaurantId}`, nextId);
   };

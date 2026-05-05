@@ -4,6 +4,109 @@ import styles from './TableFloorPlan.module.css';
 
 const VIEW_W = 1000;
 const VIEW_H = 520;
+const TEMPLATE_SCHEMES = {
+  classic: {
+    hallPath: 'M58 82 Q500 18 942 82 L962 170 L930 438 Q500 494 70 438 L38 170 Z',
+    entrance: { x1: 430, y1: 448, x2: 570, y2: 448, labelX: 500, labelY: 474, label: 'вход' },
+    title: 'схема зала · классика',
+  },
+  loft: {
+    hallPath: 'M54 64 L906 64 L948 124 L926 458 L650 458 L612 416 L196 416 L158 458 L76 458 L32 136 Z',
+    entrance: { x1: 90, y1: 458, x2: 210, y2: 458, labelX: 150, labelY: 484, label: 'вход' },
+    title: 'схема зала · лофт',
+  },
+  atrium: {
+    hallPath: 'M66 98 Q200 46 346 78 Q500 24 654 78 Q800 46 934 98 L902 432 Q500 486 98 432 Z',
+    entrance: { x1: 460, y1: 432, x2: 540, y2: 432, labelX: 500, labelY: 456, label: 'вход' },
+    title: 'схема зала · атриум',
+  },
+  terrace: {
+    hallPath: 'M44 110 L700 110 L780 70 L930 70 L930 438 L790 438 L700 398 L44 398 Z',
+    entrance: { x1: 820, y1: 70, x2: 900, y2: 70, labelX: 860, labelY: 94, label: 'вход' },
+    title: 'схема зала · терраса',
+  },
+  banquet: {
+    hallPath: 'M40 102 L960 102 L960 418 L40 418 Z',
+    entrance: { x1: 920, y1: 210, x2: 920, y2: 310, labelX: 870, labelY: 266, label: 'вход' },
+    title: 'схема зала · банкетный',
+  },
+  gallery: {
+    hallPath: 'M60 76 L742 76 L820 120 L940 120 L940 444 L820 444 L742 486 L60 486 Z',
+    entrance: { x1: 888, y1: 468, x2: 940, y2: 468, labelX: 900, labelY: 492, label: 'вход' },
+    title: 'схема зала · галерея',
+  },
+  'u-shape': {
+    hallPath: 'M58 74 L942 74 L942 220 L760 220 L760 360 L242 360 L242 220 L58 220 Z',
+    entrance: { x1: 450, y1: 360, x2: 550, y2: 360, labelX: 500, labelY: 384, label: 'вход' },
+    title: 'схема зала · u-форма',
+  },
+  arcade: {
+    hallPath: 'M70 130 Q180 54 320 80 Q500 26 680 80 Q820 54 930 130 L930 420 Q500 500 70 420 Z',
+    entrance: { x1: 80, y1: 248, x2: 80, y2: 312, labelX: 126, labelY: 286, label: 'вход' },
+    title: 'схема зала · аркада',
+  },
+  amphitheater: {
+    hallPath: 'M58 140 Q170 56 320 84 Q500 20 680 84 Q830 56 942 140 L910 430 Q500 506 90 430 Z',
+    entrance: { x1: 464, y1: 430, x2: 536, y2: 430, labelX: 500, labelY: 454, label: 'главный вход' },
+    title: 'премиум · амфитеатр',
+  },
+  'private-cabins': {
+    hallPath: 'M42 92 L958 92 L958 438 L860 438 L860 370 L700 370 L700 438 L300 438 L300 370 L140 370 L140 438 L42 438 Z',
+    entrance: { x1: 920, y1: 92, x2: 958, y2: 92, labelX: 922, labelY: 116, label: 'вход' },
+    title: 'премиум · приватные кабинки',
+  },
+  'island-bar': {
+    hallPath: 'M52 86 L948 86 L948 432 L52 432 Z',
+    entrance: { x1: 72, y1: 432, x2: 200, y2: 432, labelX: 136, labelY: 456, label: 'вход' },
+    title: 'премиум · островной бар',
+  },
+};
+
+function renderTemplateDecor(templateId) {
+  if (templateId === 'island-bar') {
+    return (
+      <>
+        <rect
+          x={410}
+          y={210}
+          width={180}
+          height={100}
+          rx={22}
+          fill="rgba(201,169,98,0.22)"
+          stroke="rgba(201,169,98,0.72)"
+          strokeWidth="1.5"
+          style={{ pointerEvents: 'none' }}
+        />
+        <text x={500} y={268} textAnchor="middle" className={styles.objLabel}>
+          бар
+        </text>
+      </>
+    );
+  }
+
+  if (templateId === 'private-cabins') {
+    return (
+      <>
+        <rect x={80} y={130} width={130} height={90} rx={14} fill="rgba(148,100,210,0.22)" stroke="rgba(148,100,210,0.72)" strokeWidth="1.5" />
+        <rect x={790} y={130} width={130} height={90} rx={14} fill="rgba(148,100,210,0.22)" stroke="rgba(148,100,210,0.72)" strokeWidth="1.5" />
+        <rect x={80} y={252} width={130} height={90} rx={14} fill="rgba(148,100,210,0.22)" stroke="rgba(148,100,210,0.72)" strokeWidth="1.5" />
+        <rect x={790} y={252} width={130} height={90} rx={14} fill="rgba(148,100,210,0.22)" stroke="rgba(148,100,210,0.72)" strokeWidth="1.5" />
+      </>
+    );
+  }
+
+  if (templateId === 'amphitheater') {
+    return (
+      <>
+        <path d="M170 340 Q500 430 830 340" stroke="rgba(255,255,255,0.22)" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M210 304 Q500 380 790 304" stroke="rgba(255,255,255,0.22)" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M250 272 Q500 334 750 272" stroke="rgba(255,255,255,0.22)" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </>
+    );
+  }
+
+  return null;
+}
 
 /* ─── Object presets (same palette as HallEditor) ────────────── */
 const OBJ_PRESETS = {
@@ -45,7 +148,10 @@ function parseHallSchema(raw) {
   if (!raw) return null;
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return parsed?.polygonPoints?.length >= 3 ? parsed : null;
+    if (parsed?.templateId && TEMPLATE_SCHEMES[parsed.templateId]) {
+      return { type: 'template', templateId: parsed.templateId };
+    }
+    return parsed?.polygonPoints?.length >= 3 ? { type: 'custom', ...parsed } : null;
   } catch { return null; }
 }
 
@@ -147,7 +253,39 @@ function TableFloorPlan({
 
   /* ── Hall outline: custom schema or hardcoded fallback ──────── */
   const renderHallOutline = () => {
-    if (schema) {
+    if (schema?.type === 'template') {
+      const tpl = TEMPLATE_SCHEMES[schema.templateId];
+      return (
+        <>
+          <path className={styles.hallOutline} d={tpl.hallPath} fill="none" />
+          {renderTemplateDecor(schema.templateId)}
+          {tpl.entrance && (
+            <>
+              <line
+                x1={tpl.entrance.x1}
+                y1={tpl.entrance.y1}
+                x2={tpl.entrance.x2}
+                y2={tpl.entrance.y2}
+                className={styles.entrance}
+              />
+              <text
+                x={tpl.entrance.labelX}
+                y={tpl.entrance.labelY}
+                textAnchor="middle"
+                className={styles.entranceLabel}
+              >
+                {tpl.entrance.label}
+              </text>
+            </>
+          )}
+          <text x={VIEW_W / 2} y={28} textAnchor="middle" className={styles.hallTitle}>
+            {tpl.title}
+          </text>
+        </>
+      );
+    }
+
+    if (schema?.type === 'custom') {
       const polyPts = schema.polygonPoints.map((p) => `${p.x},${p.y}`).join(' ');
       const ent = schema.entranceLine;
       return (
