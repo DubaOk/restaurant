@@ -5,8 +5,9 @@ const multer = require('multer');
 const uploadsRoot = path.join(process.cwd(), 'uploads');
 const restaurantsDir = path.join(uploadsRoot, 'restaurants');
 const avatarsDir = path.join(uploadsRoot, 'avatars');
+const menuDir = path.join(uploadsRoot, 'menu');
 
-[restaurantsDir, avatarsDir].forEach((dir) => {
+[restaurantsDir, avatarsDir, menuDir].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -40,4 +41,10 @@ const uploadUserAvatar = multer({
   limits: { files: 1, fileSize: 3 * 1024 * 1024 },
 });
 
-module.exports = { uploadRestaurantImages, uploadUserAvatar };
+const uploadMenuImage = multer({
+  storage: makeStorage(menuDir),
+  fileFilter: imageFilter,
+  limits: { files: 1, fileSize: 5 * 1024 * 1024 },
+});
+
+module.exports = { uploadRestaurantImages, uploadUserAvatar, uploadMenuImage };

@@ -20,7 +20,7 @@ const errorHandler = (err, req, res, next) => {
 
   return res.status(500).json({
     success: false,
-    message: 'Внутренняя ошибка сервера',
+    message: nodeEnv !== 'production' && err?.message ? err.message : 'Внутренняя ошибка сервера',
   });
 };
 

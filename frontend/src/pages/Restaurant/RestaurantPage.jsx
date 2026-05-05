@@ -32,7 +32,7 @@ function buildGallery(restaurant) {
 
 /* Picks from actual menu: food items for chef, drinks for bar */
 function buildMenuPicks(menuItems) {
-  const available = menuItems.filter((i) => i.isAvailable);
+  const available = menuItems.filter((i) => i.isAvailable && i.isRecommended);
   const foodItems  = available.filter((i) => !isDrinkCategory(i.category));
   const drinkItems = available.filter((i) => isDrinkCategory(i.category));
   return {
@@ -52,6 +52,7 @@ const RestaurantPage = () => {
   const [reviews, setReviews]       = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [menuItems, setMenuItems]   = useState([]);
+  const [selectedMenuItem, setSelectedMenuItem] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
@@ -103,6 +104,15 @@ const RestaurantPage = () => {
   const handleReviewCreated = (newReview) => setReviews((prev) => [newReview, ...prev]);
   const handleReviewUpdated = (updated) =>
     setReviews((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+
+  useEffect(() => {
+    if (!selectedMenuItem) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setSelectedMenuItem(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedMenuItem]);
 
   const menuByCategory = menuItems.reduce((acc, item) => {
     const cat = item.category || 'Прочее';
@@ -297,11 +307,32 @@ const RestaurantPage = () => {
                         <h3 className={styles.categoryTitle}>{category}</h3>
                         <ul className={styles.menuList}>
                           {items.filter((i) => i.isAvailable).map((item) => (
-                            <li key={item.id} className={styles.menuItem}>
-                              <span className={styles.menuItemName}>{item.name}</span>
-                              {item.description && (
-                                <span className={styles.menuItemDesc}>{item.description}</span>
+                            <li
+                              key={item.id}
+                              className={styles.menuItem}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setSelectedMenuItem(item)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setSelectedMenuItem(item);
+                                }
+                              }}
+                            >
+                              {item.imageUrl && (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={`${item.name} фото`}
+                                  className={styles.menuItemBackdropImage}
+                                />
                               )}
+                              <div className={styles.menuItemBody}>
+                                <span className={styles.menuItemName}>{item.name}</span>
+                                {item.description && (
+                                  <span className={styles.menuItemDesc}>{item.description}</span>
+                                )}
+                              </div>
                               <span className={styles.menuItemPrice}>
                                 {item.price.toFixed(2)}&nbsp;<i className="nbrb-icon">BYN</i>
                               </span>
@@ -354,6 +385,45 @@ const RestaurantPage = () => {
 
         </main>
       </div>
+      {selectedMenuItem && (
+        <div className={styles.productModalOverlay} onClick={() => setSelectedMenuItem(null)}>
+          <div
+            className={styles.productModal}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Карточка блюда ${selectedMenuItem.name}`}
+          >
+            <button
+              type="button"
+              className={styles.productModalClose}
+              onClick={() => setSelectedMenuItem(null)}
+              aria-label="Закрыть карточку блюда"
+            >
+              ×
+            </button>
+            {selectedMenuItem.imageUrl && (
+              <div className={styles.productModalImageWrap}>
+                <img
+                  src={selectedMenuItem.imageUrl}
+                  alt={`${selectedMenuItem.name} фото`}
+                  className={styles.productModalImage}
+                />
+              </div>
+            )}
+            <div className={styles.productModalBody}>
+              <p className={styles.productModalCategory}>{selectedMenuItem.category || 'Позиция меню'}</p>
+              <h3 className={styles.productModalTitle}>{selectedMenuItem.name}</h3>
+              {selectedMenuItem.description && (
+                <p className={styles.productModalDescription}>{selectedMenuItem.description}</p>
+              )}
+              <p className={styles.productModalPrice}>
+                {Number(selectedMenuItem.price).toFixed(2)}&nbsp;<i className="nbrb-icon">BYN</i>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

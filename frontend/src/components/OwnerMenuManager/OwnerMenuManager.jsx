@@ -3,7 +3,69 @@ import { menuApi } from '../../api/menu.api';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import styles from './OwnerMenuManager.module.css';
 
-const EMPTY_ITEM = { name: '', description: '', price: '', category: '', isAvailable: true };
+const PRESET_CATEGORIES = ['Закуски', 'Салаты', 'Горячее', 'Супы', 'Гарниры', 'Десерты', 'Напитки'];
+const CUSTOM_CATEGORY = '__custom__';
+
+const EMPTY_ITEM = {
+  name: '',
+  description: '',
+  price: '',
+  category: PRESET_CATEGORIES[0],
+  customCategory: '',
+  categoryChoice: PRESET_CATEGORIES[0],
+  isAvailable: true,
+  isRecommended: false,
+  image: null,
+};
+
+const resolveCategoryFormState = (category) => {
+  if (PRESET_CATEGORIES.includes(category)) {
+    return { categoryChoice: category, customCategory: '' };
+  }
+  return { categoryChoice: CUSTOM_CATEGORY, customCategory: category || '' };
+};
+
+const CategoryDropdown = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const options = [...PRESET_CATEGORIES, CUSTOM_CATEGORY];
+  const label = value === CUSTOM_CATEGORY ? 'Своя категория' : value;
+
+  return (
+    <div className={styles.selectWrap}>
+      <button
+        type="button"
+        className={styles.selectButton}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{label}</span>
+        <span className={`${styles.selectChevron} ${open ? styles.selectChevronOpen : ''}`}>▾</span>
+      </button>
+      {open && (
+        <div className={styles.selectMenu} role="listbox">
+          {options.map((option) => {
+            const optionLabel = option === CUSTOM_CATEGORY ? 'Своя категория' : option;
+            const active = value === option;
+            return (
+              <button
+                type="button"
+                key={option}
+                className={`${styles.selectOption} ${active ? styles.selectOptionActive : ''}`}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {optionLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const OwnerMenuManager = ({ restaurantId }) => {
   const [items, setItems] = useState([]);
@@ -26,25 +88,34 @@ const OwnerMenuManager = ({ restaurantId }) => {
   }, [restaurantId]);
 
   const startEdit = (item) => {
+    const categoryState = resolveCategoryFormState(item.category);
     setEditingId(item.id);
     setEditForm({
       name: item.name,
       description: item.description || '',
       price: String(item.price),
       category: item.category,
+      ...categoryState,
       isAvailable: item.isAvailable,
+      isRecommended: !!item.isRecommended,
+      imageUrl: item.imageUrl || '',
+      image: null,
     });
   };
 
   const handleSave = async (id) => {
     setSavingId(id);
     try {
+      const category =
+        editForm.categoryChoice === CUSTOM_CATEGORY ? editForm.customCategory.trim() : editForm.categoryChoice;
       const payload = {
         name: editForm.name,
         description: editForm.description,
         price: parseFloat(editForm.price),
-        category: editForm.category,
+        category,
         isAvailable: editForm.isAvailable,
+        isRecommended: editForm.isRecommended,
+        image: editForm.image || undefined,
       };
       const { data } = await menuApi.update(id, payload);
       setItems((prev) => prev.map((i) => (i.id === id ? data.data : i)));
@@ -74,13 +145,17 @@ const OwnerMenuManager = ({ restaurantId }) => {
     e.preventDefault();
     setAdding(true);
     try {
+      const category =
+        newItem.categoryChoice === CUSTOM_CATEGORY ? newItem.customCategory.trim() : newItem.categoryChoice;
       const payload = {
         restaurantId,
         name: newItem.name,
         description: newItem.description,
         price: parseFloat(newItem.price),
-        category: newItem.category,
+        category,
         isAvailable: newItem.isAvailable,
+        isRecommended: newItem.isRecommended,
+        image: newItem.image || undefined,
       };
       const { data } = await menuApi.create(payload);
       setItems((prev) => [...prev, data.data]);
@@ -121,11 +196,9 @@ const OwnerMenuManager = ({ restaurantId }) => {
                         value={editForm.name}
                         onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
                       />
-                      <input
-                        className={styles.input}
-                        placeholder="Категория"
-                        value={editForm.category}
-                        onChange={(e) => setEditForm((p) => ({ ...p, category: e.target.value }))}
+                      <CategoryDropdown
+                        value={editForm.categoryChoice || PRESET_CATEGORIES[0]}
+                        onChange={(value) => setEditForm((p) => ({ ...p, categoryChoice: value }))}
                       />
                       <input
                         className={styles.inputSmall}
@@ -136,12 +209,41 @@ const OwnerMenuManager = ({ restaurantId }) => {
                         onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))}
                       />
                     </div>
-                    <input
-                      className={styles.input}
+                    {editForm.categoryChoice === CUSTOM_CATEGORY && (
+                      <input
+                        className={styles.input}
+                        placeholder="Своя категория *"
+                        value={editForm.customCategory || ''}
+                        onChange={(e) => setEditForm((p) => ({ ...p, customCategory: e.target.value }))}
+                        required
+                      />
+                    )}
+                    <textarea
+                      className={styles.textarea}
                       placeholder="Описание (необязательно)"
                       value={editForm.description}
                       onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                     />
+                    <div className={styles.fileRow}>
+                      {editForm.imageUrl && (
+                        <img
+                          src={editForm.imageUrl}
+                          alt={`${editForm.name || 'Позиция'} фото`}
+                          className={styles.previewThumb}
+                        />
+                      )}
+                      <label className={styles.fileLabel}>
+                        Обновить фото
+                        <input
+                          className={styles.fileInput}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, image: e.target.files?.[0] || null }))
+                          }
+                        />
+                      </label>
+                    </div>
                     <label className={styles.checkLabel}>
                       <input
                         type="checkbox"
@@ -149,6 +251,14 @@ const OwnerMenuManager = ({ restaurantId }) => {
                         onChange={(e) => setEditForm((p) => ({ ...p, isAvailable: e.target.checked }))}
                       />
                       Доступно
+                    </label>
+                    <label className={styles.checkLabel}>
+                      <input
+                        type="checkbox"
+                        checked={!!editForm.isRecommended}
+                        onChange={(e) => setEditForm((p) => ({ ...p, isRecommended: e.target.checked }))}
+                      />
+                      Рекомендовать в карточке
                     </label>
                     <div className={styles.editActions}>
                       <button
@@ -166,8 +276,14 @@ const OwnerMenuManager = ({ restaurantId }) => {
                   </div>
                 ) : (
                   <>
+                    {item.imageUrl && (
+                      <img src={item.imageUrl} alt={`${item.name} фото`} className={styles.itemThumb} />
+                    )}
                     <div className={styles.itemInfo}>
-                      <span className={styles.itemName}>{item.name}</span>
+                      <div className={styles.itemTopRow}>
+                        <span className={styles.itemName}>{item.name}</span>
+                        {item.isRecommended && <span className={styles.recommendedTag}>Рекомендуем</span>}
+                      </div>
                       {item.description && <span className={styles.itemDesc}>{item.description}</span>}
                       <span className={styles.itemPrice}>
                         {item.price.toFixed(2)}&nbsp;<i className="nbrb-icon">BYN</i>
@@ -202,12 +318,9 @@ const OwnerMenuManager = ({ restaurantId }) => {
             onChange={(e) => setNewItem((p) => ({ ...p, name: e.target.value }))}
             required
           />
-          <input
-            className={styles.input}
-            placeholder="Категория *"
-            value={newItem.category}
-            onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value }))}
-            required
+          <CategoryDropdown
+            value={newItem.categoryChoice}
+            onChange={(value) => setNewItem((p) => ({ ...p, categoryChoice: value }))}
           />
           <input
             className={styles.inputSmall}
@@ -219,12 +332,41 @@ const OwnerMenuManager = ({ restaurantId }) => {
             required
           />
         </div>
-        <input
-          className={styles.input}
+        {newItem.categoryChoice === CUSTOM_CATEGORY && (
+          <input
+            className={styles.input}
+            placeholder="Своя категория *"
+            value={newItem.customCategory}
+            onChange={(e) => setNewItem((p) => ({ ...p, customCategory: e.target.value }))}
+            required
+          />
+        )}
+        <textarea
+          className={styles.textarea}
           placeholder="Описание (необязательно)"
           value={newItem.description}
           onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))}
         />
+        <label className={styles.checkLabel}>
+          <input
+            type="checkbox"
+            checked={newItem.isRecommended}
+            onChange={(e) => setNewItem((p) => ({ ...p, isRecommended: e.target.checked }))}
+          />
+          Рекомендовать в карточке ресторана
+        </label>
+        <div className={styles.fileRow}>
+          {newItem.image && <span className={styles.fileName}>{newItem.image.name}</span>}
+          <label className={styles.fileLabel}>
+            Загрузить фото блюда
+            <input
+              className={styles.fileInput}
+              type="file"
+              accept="image/*"
+              onChange={(e) => setNewItem((p) => ({ ...p, image: e.target.files?.[0] || null }))}
+            />
+          </label>
+        </div>
         <button type="submit" className={styles.addBtn} disabled={adding}>
           {adding ? 'Добавление...' : '+ Добавить'}
         </button>
