@@ -46,13 +46,15 @@
   display: grid;
   grid-template-columns: 1fr 260px;
   gap: 1.1rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .editorCanvas {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  min-height: 100%;
+  min-width: 0;
 }
 
 .schemeBar {
@@ -120,6 +122,115 @@
   font-size: 0.78rem;
   color: #9aa3b2;
   line-height: 1.4;
+}
+
+.editorSaveZone {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, transparent 0%, rgba(242, 208, 154, 0.04) 55%, rgba(14, 18, 24, 0.35) 100%);
+  border-radius: 0 0 10px 10px;
+  margin-left: -0.35rem;
+  margin-right: -0.35rem;
+  margin-bottom: -0.15rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  padding-bottom: 0.35rem;
+}
+
+.editorSaveZoneTitle {
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(184, 154, 99, 0.75);
+}
+
+.editorSaveZoneWarn {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #f3a8a8;
+  line-height: 1.4;
+}
+
+.editorSaveOk {
+  font-size: 0.74rem;
+  color: #7dd3a8;
+  line-height: 1.35;
+}
+
+.editorSaveZoneBtn {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.editorSaveZoneHint {
+  margin: 0;
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+/* Save block under the floor plan (left column) */
+.editorSaveZoneUnderPlan {
+  margin-top: 0.25rem;
+  padding: 0.85rem 1rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 169, 98, 0.2);
+  background: linear-gradient(165deg, rgba(242, 208, 154, 0.06) 0%, rgba(14, 18, 24, 0.55) 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 42rem;
+}
+
+.editorSaveZoneBtnUnder {
+  width: 100%;
+  max-width: 20rem;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  align-self: flex-start;
+}
+
+.editorSaveStatusSlot {
+  min-height: 2.65rem;
+  display: flex;
+  align-items: center;
+}
+
+.editorSaveZoneWarnShort {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #f3a8a8;
+  line-height: 1.35;
+}
+
+.editorSaveMuted {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.editorTableRectInvalid {
+  fill: rgba(120, 28, 28, 0.35) !important;
+  stroke: rgba(248, 113, 113, 0.95) !important;
+  stroke-width: 2.2px !important;
+}
+
+.editorTableRectInvalid.editorTableRectSelected {
+  stroke: #f87171 !important;
 }
 
 .emptyCanvas {
@@ -254,6 +365,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  min-height: 100%;
+  min-width: 0;
 }
 
 .panelTitle {
@@ -314,6 +427,13 @@
   font-size: 0.7rem;
   color: #6b7280;
   margin: 0;
+}
+
+.panelBoundaryHint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: #f3a8a8;
+  line-height: 1.35;
 }
 
 .panelInputHint {

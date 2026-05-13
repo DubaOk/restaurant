@@ -31,69 +31,69 @@ const DEPOSIT_PER_GUEST = 25;
 
 const calcDeposit = (guestsCount) => Math.max(DEPOSIT_PER_GUEST, guestsCount * DEPOSIT_PER_GUEST);
 
-const checkSlotConflict = async (tableId, date, excludeId = null) => {
-  return prisma.reservation.findFirst({
-    where: {
-      OR: [
-        { tableId },
-        { combinedWithTableId: tableId },
-      ],
-      status: { in: ['PENDING', 'CONFIRMED'] },
-      id: excludeId ? { not: excludeId } : undefined,
-      date: {
-        gte: new Date(new Date(date).getTime() - 2 * 60 * 60 * 1000),
-        lte: new Date(new Date(date).getTime() + 2 * 60 * 60 * 1000),
-      },
-    },
-  });
+const normalizeTableIds = (tableId, combinedWithTableId, combinedWithTableIds) => {
+  const ids = [tableId];
+  if (combinedWithTableId) ids.push(combinedWithTableId);
+  if (Array.isArray(combinedWithTableIds)) ids.push(...combinedWithTableIds);
+  return [...new Set(ids.map(Number).filter(Number.isFinite))];
 };
 
-const create = async (userId, { restaurantId, tableId, combinedWithTableId, date, guestsCount, comment, bonusesToSpend }) => {
-  const table = await prisma.table.findFirst({
-    where: { id: tableId, restaurantId },
+const getBusyTableIds = (reservation) => {
+  const ids = [reservation.tableId];
+  if (reservation.combinedWithTableId) ids.push(reservation.combinedWithTableId);
+  if (Array.isArray(reservation.combinedWithTableIds)) ids.push(...reservation.combinedWithTableIds);
+  return [...new Set(ids.map(Number).filter(Number.isFinite))];
+};
+
+const checkSlotConflict = async (restaurantId, requestedTableIds, date, excludeId = null) => {
+  const windowStart = new Date(new Date(date).getTime() - 2 * 60 * 60 * 1000);
+  const windowEnd = new Date(new Date(date).getTime() + 2 * 60 * 60 * 1000);
+  const reservations = await prisma.reservation.findMany({
+    where: {
+      restaurantId,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      id: excludeId ? { not: excludeId } : undefined,
+      date: { gte: windowStart, lte: windowEnd },
+    },
+    select: {
+      id: true,
+      tableId: true,
+      combinedWithTableId: true,
+      combinedWithTableIds: true,
+    },
+  });
+  const requested = new Set(requestedTableIds);
+  return reservations.find((r) => getBusyTableIds(r).some((id) => requested.has(id))) || null;
+};
+
+const create = async (
+  userId,
+  { restaurantId, tableId, combinedWithTableId, combinedWithTableIds, date, guestsCount, comment, bonusesToSpend }
+) => {
+  const requestedTableIds = normalizeTableIds(tableId, combinedWithTableId, combinedWithTableIds);
+  if (requestedTableIds.length === 0) throw ApiError.badRequest('Не выбраны столики');
+
+  const tables = await prisma.table.findMany({
+    where: { id: { in: requestedTableIds }, restaurantId },
     include: { restaurant: { select: { name: true } } },
   });
-  if (!table) throw ApiError.notFound('Столик не найден в этом ресторане');
+  if (tables.length !== requestedTableIds.length) {
+    throw ApiError.notFound('Один или несколько столиков не найдены в этом ресторане');
+  }
+  const mainTable = tables.find((t) => t.id === tableId) || tables[0];
 
-  const effectiveMax = table.maxCapacity || table.capacity;
-
-  // Combined table booking
-  if (combinedWithTableId) {
-    const table2 = await prisma.table.findFirst({ where: { id: combinedWithTableId, restaurantId } });
-    if (!table2) throw ApiError.notFound('Второй столик не найден');
-    const combinedCap = (table.capacity + table2.capacity) - 2;
-    const combinedMax = ((table.maxCapacity || table.capacity) + (table2.maxCapacity || table2.capacity)) - 2;
-    if (guestsCount > combinedMax)
-      throw ApiError.badRequest(`Объединённый стол рассчитан максимум на ${combinedMax} гостей`);
-    const conflict1 = await checkSlotConflict(tableId, date);
-    const conflict2 = await checkSlotConflict(combinedWithTableId, date);
-    if (conflict1 || conflict2) throw ApiError.conflict('Один из столиков уже занят на выбранное время');
-
-    const extraChair = guestsCount > combinedCap;
-    const depositAmount = calcDeposit(guestsCount);
-    let bonusesUsed = 0;
-    if (bonusesToSpend && bonusesToSpend > 0) {
-      const { balance } = await bonusesService.getBalance(userId);
-      bonusesUsed = Math.min(Math.floor(bonusesToSpend), balance, depositAmount);
-      if (bonusesUsed > 0) {
-        await bonusesService.spend(userId, bonusesUsed, `Оплата части депозита в "${table.restaurant.name}" бонусами`);
-      }
-    }
-    const reservation = await prisma.reservation.create({
-      data: { userId, restaurantId, tableId, combinedWithTableId, date: new Date(date), guestsCount, comment, bonusesUsed, extraChair },
-      include: RESERVATION_INCLUDE,
-    });
-    return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed, extraChair, combinedWithTableId };
+  const joinsCount = Math.max(0, requestedTableIds.length - 1);
+  const combinedCap = tables.reduce((sum, t) => sum + t.capacity, 0) - (joinsCount * 2);
+  const combinedMax = tables.reduce((sum, t) => sum + (t.maxCapacity || t.capacity), 0) - (joinsCount * 2);
+  if (guestsCount > combinedMax) {
+    const label = requestedTableIds.length > 1 ? 'Объединённый стол' : 'Столик';
+    throw ApiError.badRequest(`${label} рассчитан максимум на ${combinedMax} гостей`);
   }
 
-  // Single table — allow overflow up to maxCapacity
-  if (guestsCount > effectiveMax)
-    throw ApiError.badRequest(`Столик рассчитан максимум на ${effectiveMax} гостей`);
+  const conflict = await checkSlotConflict(restaurantId, requestedTableIds, date);
+  if (conflict) throw ApiError.conflict('Один из столиков уже занят на выбранное время');
 
-  const conflict = await checkSlotConflict(tableId, date);
-  if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
-
-  const extraChair = guestsCount > table.capacity;
+  const extraChair = guestsCount > combinedCap;
   const depositAmount = calcDeposit(guestsCount);
   let bonusesUsed = 0;
 
@@ -101,16 +101,35 @@ const create = async (userId, { restaurantId, tableId, combinedWithTableId, date
     const { balance } = await bonusesService.getBalance(userId);
     bonusesUsed = Math.min(Math.floor(bonusesToSpend), balance, depositAmount);
     if (bonusesUsed > 0) {
-      await bonusesService.spend(userId, bonusesUsed, `Оплата части депозита в "${table.restaurant.name}" бонусами`);
+      await bonusesService.spend(userId, bonusesUsed, `Оплата части депозита в "${mainTable.restaurant.name}" бонусами`);
     }
   }
 
+  const extraIds = requestedTableIds.filter((id) => id !== mainTable.id);
   const reservation = await prisma.reservation.create({
-    data: { userId, restaurantId, tableId, date: new Date(date), guestsCount, comment, bonusesUsed, extraChair },
+    data: {
+      userId,
+      restaurantId,
+      tableId: mainTable.id,
+      combinedWithTableId: extraIds[0] || null,
+      combinedWithTableIds: extraIds,
+      date: new Date(date),
+      guestsCount,
+      comment,
+      bonusesUsed,
+      extraChair,
+    },
     include: RESERVATION_INCLUDE,
   });
 
-  return { ...reservation, depositAmount, bonusesUsed, finalDeposit: depositAmount - bonusesUsed, extraChair };
+  return {
+    ...reservation,
+    depositAmount,
+    bonusesUsed,
+    finalDeposit: depositAmount - bonusesUsed,
+    extraChair,
+    combinedWithTableIds: extraIds,
+  };
 };
 
 const update = async (id, userId, { date, guestsCount, tableId }) => {
@@ -132,7 +151,7 @@ const update = async (id, userId, { date, guestsCount, tableId }) => {
       throw ApiError.badRequest(`Столик рассчитан максимум на ${table.capacity} гостей`);
   }
 
-  const conflict = await checkSlotConflict(checkTableId, checkDate, id);
+  const conflict = await checkSlotConflict(reservation.restaurantId, [checkTableId], checkDate, id);
   if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
 
   return prisma.reservation.update({

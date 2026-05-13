@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { hallDecorOverlapsAnother, isHallDecorGeomValid, isHallDecorInsidePolygon } from '../../utils/hallBoundary';
 import styles from './HallEditor.module.css';
 
 /* ─── Constants ──────────────────────────────────────────────── */
@@ -39,20 +40,85 @@ export const OBJECT_PRESETS = {
   stage:      { w: 280, h: 80,  rx: 10, label: 'СЦЕНА',    fill: 'rgba(148,100,210,0.22)', stroke: 'rgba(148,100,210,0.78)' },
   dancefloor: { w: 200, h: 200, rx: 18, label: 'ТАНЦПОЛ',  fill: 'rgba(72,180,160,0.22)',  stroke: 'rgba(72,180,160,0.78)'  },
   pillar:     { w: 44,  h: 44,  rx: 22, label: '',          fill: 'rgba(120,132,150,0.45)', stroke: 'rgba(140,152,172,0.85)' },
+  kitchen:    { w: 140, h: 100, rx: 8,  label: 'КУХНЯ',    fill: 'rgba(220,140,90,0.2)',   stroke: 'rgba(230,150,100,0.82)' },
+  partition:  { w: 200, h: 28,  rx: 4,  label: '',          fill: 'rgba(100,110,130,0.35)',  stroke: 'rgba(130,140,165,0.88)' },
+  lounge:     { w: 220, h: 140, rx: 20, label: 'ЗОНА',     fill: 'rgba(90,130,200,0.18)',   stroke: 'rgba(120,160,230,0.78)' },
 };
+
+export function presetFor(type) {
+  return OBJECT_PRESETS[type] || OBJECT_PRESETS.bar;
+}
 
 const OBJECT_NAMES = {
   bar: 'Бар / стойка',
   stage: 'Сцена',
   dancefloor: 'Танцпол',
   pillar: 'Колонна',
+  kitchen: 'Кухня',
+  partition: 'Перегородка',
+  lounge: 'Зона отдыха',
 };
+
+const MIN_OBJ = 40;
+const VB_PAD = 12;
+
+/** dragCorner = угол, который тянем; (fx,fy) — противоположный закреплённый угол */
+function rectFromResizeCorner(dragCorner, fx, fy, sx, sy) {
+  const sxs = snap(sx);
+  const sys = snap(sy);
+  let left; let top; let right; let bottom;
+  if (dragCorner === 'se') {
+    left = fx; top = fy;
+    right = Math.max(fx + MIN_OBJ, sxs);
+    bottom = Math.max(fy + MIN_OBJ, sys);
+  } else if (dragCorner === 'nw') {
+    right = fx; bottom = fy;
+    left = Math.min(sxs, fx - MIN_OBJ);
+    top = Math.min(sys, fy - MIN_OBJ);
+  } else if (dragCorner === 'ne') {
+    left = fx; bottom = fy;
+    right = Math.max(fx + MIN_OBJ, sxs);
+    top = Math.min(sys, fy - MIN_OBJ);
+  } else {
+    right = fx; top = fy;
+    left = Math.min(sxs, fx - MIN_OBJ);
+    bottom = Math.max(fy + MIN_OBJ, sys);
+  }
+  left = Math.max(VB_PAD, left);
+  top = Math.max(VB_PAD, top);
+  right = Math.min(VB_W - VB_PAD, right);
+  bottom = Math.min(VB_H - VB_PAD, bottom);
+  if (right - left < MIN_OBJ) {
+    if (dragCorner === 'se' || dragCorner === 'ne') left = right - MIN_OBJ;
+    else right = left + MIN_OBJ;
+  }
+  if (bottom - top < MIN_OBJ) {
+    if (dragCorner === 'se' || dragCorner === 'sw') top = bottom - MIN_OBJ;
+    else bottom = top + MIN_OBJ;
+  }
+  left = Math.max(VB_PAD, Math.min(left, VB_W - VB_PAD - MIN_OBJ));
+  top = Math.max(VB_PAD, Math.min(top, VB_H - VB_PAD - MIN_OBJ));
+  right = Math.max(left + MIN_OBJ, Math.min(right, VB_W - VB_PAD));
+  bottom = Math.max(top + MIN_OBJ, Math.min(bottom, VB_H - VB_PAD));
+  const w = right - left;
+  const h = bottom - top;
+  return { x: left + w / 2, y: top + h / 2, w, h };
+}
+
+function fixedCornerCoords(dragCorner, o) {
+  const hw = o.w / 2;
+  const hh = o.h / 2;
+  if (dragCorner === 'se') return { fx: o.x - hw, fy: o.y - hh };
+  if (dragCorner === 'nw') return { fx: o.x + hw, fy: o.y + hh };
+  if (dragCorner === 'ne') return { fx: o.x - hw, fy: o.y + hh };
+  return { fx: o.x + hw, fy: o.y - hh };
+}
 
 const TOOLS = [
   { id: 'polygon',  icon: '⬡', label: 'Контур зала',      hint: 'Кликайте, чтобы добавлять вершины контура' },
   { id: 'entrance', icon: '🚪', label: 'Вход',              hint: 'Два клика — начало и конец дверного проёма' },
-  { id: 'object',   icon: '⬛', label: 'Объект',            hint: 'Кликните, чтобы разместить объект' },
-  { id: 'select',   icon: '↖',  label: 'Выбор / правка',   hint: 'Перетащите вершину или объект для изменения' },
+  { id: 'object',   icon: '⬛', label: 'Объект',            hint: 'Объекты не должны пересекаться; после контура — ещё и внутри стен' },
+  { id: 'select',   icon: '↖',  label: 'Выбор / правка',   hint: 'Перетащите вершину или объект; у объекта — углы и поля размера' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -71,6 +137,26 @@ const HallEditor = ({ restaurantId, onDone }) => {
   const [selObjId, setSelObjId]       = useState(null);      // selected object id
   const [entStart, setEntStart]       = useState(null);      // entrance: first click
   const [cursor, setCursor]           = useState(null);      // snapped mouse {x,y}
+
+  const selectedObj = useMemo(
+    () => (selObjId ? objects.find((o) => o.id === selObjId) ?? null : null),
+    [objects, selObjId],
+  );
+
+  const selectedObjIssue = useMemo(() => {
+    if (!selectedObj) return 'none';
+    const outside = points.length >= 3 && !isHallDecorInsidePolygon(points, selectedObj);
+    const overlap = hallDecorOverlapsAnother(selectedObj, objects);
+    if (!outside && !overlap) return 'ok';
+    if (outside && overlap) return 'both';
+    if (outside) return 'outside';
+    return 'overlap';
+  }, [selectedObj, points, objects]);
+
+  const anyDecorInvalid = useMemo(
+    () => objects.some((o) => !isHallDecorGeomValid(points, o, objects)),
+    [points, objects],
+  );
 
   const svgRef      = useRef(null);
   const dragRef     = useRef(null);    // active drag state
@@ -92,6 +178,28 @@ const HallEditor = ({ restaurantId, onDone }) => {
   const save = useCallback((pts, ent, objs) => {
     persistSchema(restaurantId, { polygonPoints: pts, entranceLine: ent, objects: objs });
   }, [restaurantId]);
+
+  const patchSelectedObj = useCallback((patch) => {
+    if (!selObjId) return;
+    setObjects((objs) => {
+      const next = objs.map((o) => {
+        if (o.id !== selObjId) return o;
+        const nwRaw = patch.w !== undefined ? Number(patch.w) : o.w;
+        const nhRaw = patch.h !== undefined ? Number(patch.h) : o.h;
+        const nrxRaw = patch.rx !== undefined ? Number(patch.rx) : o.rx;
+        let nw = Number.isFinite(nwRaw) ? nwRaw : o.w;
+        let nh = Number.isFinite(nhRaw) ? nhRaw : o.h;
+        let nrx = Number.isFinite(nrxRaw) ? nrxRaw : o.rx;
+        nw = Math.min(VB_W - VB_PAD * 2, Math.max(MIN_OBJ, nw));
+        nh = Math.min(VB_H - VB_PAD * 2, Math.max(MIN_OBJ, nh));
+        nrx = Math.max(0, Math.min(nrx, Math.min(nw, nh) / 2));
+        const label = patch.label !== undefined ? String(patch.label) : o.label;
+        return { ...o, w: nw, h: nh, rx: nrx, label };
+      });
+      setPoints((pts) => { save(pts, entrance, next); return pts; });
+      return next;
+    });
+  }, [selObjId, save, entrance]);
 
   /* ── SVG coordinate conversion ────────────────────────────── */
   const svgPt = useCallback((e) => {
@@ -118,6 +226,17 @@ const HallEditor = ({ restaurantId, onDone }) => {
         setPoints((prev) => prev.map((p, i) => i === idx ? { x, y } : p));
       } else if (kind === 'object') {
         setObjects((prev) => prev.map((o) => o.id === id ? { ...o, x, y } : o));
+      } else if (kind === 'resize') {
+        const { dragCorner, fx, fy, id: rid } = dragRef.current;
+        const { x: cx, y: cy, w, h } = rectFromResizeCorner(dragCorner, fx, fy, raw.x, raw.y);
+        setObjects((prev) => {
+          const o = prev.find((t) => t.id === rid);
+          if (!o) return prev;
+          const rx = Math.min(o.rx, Math.min(w, h) / 2);
+          const nextO = { ...o, x: cx, y: cy, w, h, rx };
+          dragRef.current.lastSnapshot = nextO;
+          return prev.map((t) => (t.id === rid ? nextO : t));
+        });
       }
       return;
     }
@@ -131,10 +250,23 @@ const HallEditor = ({ restaurantId, onDone }) => {
 
   const handlePointerUp = useCallback(() => {
     if (!dragRef.current) return;
-    const { kind, idx, id, lastX, lastY } = dragRef.current;
+    const d = dragRef.current;
+    const {
+      kind, idx, id, lastX, lastY, lastSnapshot,
+    } = d;
     const moved = wasDragged.current;
     dragRef.current = null;
     wasDragged.current = false;
+
+    if (kind === 'resize') {
+      if (!moved || !lastSnapshot) return;
+      setObjects((objs) => {
+        const next = objs.map((o) => (o.id === id ? lastSnapshot : o));
+        setPoints((pts) => { save(pts, entrance, next); return pts; });
+        return next;
+      });
+      return;
+    }
 
     if (!moved || lastX == null) return;
 
@@ -147,7 +279,7 @@ const HallEditor = ({ restaurantId, onDone }) => {
       });
     } else if (kind === 'object') {
       setObjects((objs) => {
-        const next = objs.map((o) => o.id === id ? { ...o, x: lastX, y: lastY } : o);
+        const next = objs.map((o) => (o.id === id ? { ...o, x: lastX, y: lastY } : o));
         setPoints((pts) => { save(pts, entrance, next); return pts; });
         return next;
       });
@@ -179,7 +311,7 @@ const HallEditor = ({ restaurantId, onDone }) => {
       }
 
     } else if (tool === 'object') {
-      const pr = OBJECT_PRESETS[objType];
+      const pr = presetFor(objType);
       const obj = { id: uid(), type: objType, x: pos.x, y: pos.y, w: pr.w, h: pr.h, rx: pr.rx, label: pr.label };
       const next = [...objects, obj];
       setObjects(next);
@@ -218,6 +350,24 @@ const HallEditor = ({ restaurantId, onDone }) => {
     setSelVertex(null);
   }, [tool, svgPt]);
 
+  const onResizeHandleDown = useCallback((e, obj, dragCorner) => {
+    if (tool !== 'select') return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { fx, fy } = fixedCornerCoords(dragCorner, obj);
+    dragRef.current = {
+      kind: 'resize',
+      id: obj.id,
+      dragCorner,
+      fx,
+      fy,
+      lastSnapshot: { ...obj },
+    };
+    wasDragged.current = false;
+    setSelObjId(obj.id);
+    setSelVertex(null);
+  }, [tool]);
+
   /* ── Toolbar actions ──────────────────────────────────────── */
   const switchTool = (t) => { setTool(t); setEntStart(null); setCursor(null); };
 
@@ -251,7 +401,10 @@ const HallEditor = ({ restaurantId, onDone }) => {
     save([], null, []);
   };
 
-  const handleDone = () => onDone?.({ polygonPoints: points, entranceLine: entrance, objects });
+  const handleDone = () => {
+    if (objects.some((o) => !isHallDecorGeomValid(points, o, objects))) return;
+    onDone?.({ polygonPoints: points, entranceLine: entrance, objects });
+  };
 
   /* ── Computed ─────────────────────────────────────────────── */
   const hasPolygon = points.length >= 3;
@@ -263,12 +416,16 @@ const HallEditor = ({ restaurantId, onDone }) => {
       ? 'Кликайте по полю, чтобы добавить вершины контура'
       : `${points.length} вершин — продолжайте или переключите инструмент`,
     entrance: entStart ? 'Кликните вторую точку дверного проёма' : 'Кликните первую точку дверного проёма',
-    object:   `Кликните, чтобы разместить: ${OBJECT_NAMES[objType]}`,
+    object:   points.length >= 3
+      ? `Кликните, чтобы поставить ${OBJECT_NAMES[objType]} — пересечения и выход за стены подсвечиваются`
+      : `Кликните, чтобы разместить: ${OBJECT_NAMES[objType]} — не накладывайте объекты друг на друга`,
     select:   selVertex != null
       ? `Вершина ${selVertex + 1} выбрана — перетащите или удалите`
-      : selObjId
-        ? 'Объект выбран — перетащите или удалите'
-        : 'Выберите вершину или объект для правки',
+      : anyDecorInvalid
+        ? 'Красные объекты нужно поправить — пересечения или выход за контур'
+        : selObjId
+          ? 'Объект выбран — перетащите, тяните за углы или задайте размер ниже'
+          : 'Выберите вершину или объект для правки',
   }[tool];
 
   /* ── Render ───────────────────────────────────────────────── */
@@ -320,7 +477,13 @@ const HallEditor = ({ restaurantId, onDone }) => {
 
         <span className={styles.spacer} />
 
-        <button type="button" className={styles.btnDone} onClick={handleDone}>
+        <button
+          type="button"
+          className={styles.btnDone}
+          disabled={anyDecorInvalid}
+          title={anyDecorInvalid ? 'Исправьте красные объекты на плане' : undefined}
+          onClick={handleDone}
+        >
           → К столикам
         </button>
       </div>
@@ -335,14 +498,79 @@ const HallEditor = ({ restaurantId, onDone }) => {
               type="button"
               className={`${styles.objTypeBtn} ${objType === type ? styles.objTypeBtnActive : ''}`}
               style={objType === type ? {
-                borderColor: OBJECT_PRESETS[type].stroke,
-                color: OBJECT_PRESETS[type].stroke,
+                borderColor: presetFor(type).stroke,
+                color: presetFor(type).stroke,
               } : {}}
               onClick={() => setObjType(type)}
             >
               {name}
             </button>
           ))}
+        </div>
+      )}
+
+      {tool === 'select' && selectedObj && (
+        <div
+          className={`${styles.objInspector} ${selectedObjIssue !== 'ok' ? styles.objInspectorAlert : ''}`}
+        >
+          <div className={styles.objInspHead}>
+            <span className={styles.objInspTitle}>Размер и подпись</span>
+            <span
+              className={`${styles.objInspBadge} ${selectedObjIssue !== 'ok' ? styles.objInspBadgeWarn : styles.objInspBadgeOk}`}
+              role="status"
+              aria-live="polite"
+            >
+              {selectedObjIssue !== 'ok' ? 'Нужна правка' : 'В порядке'}
+            </span>
+          </div>
+          <p className={`${styles.objInspHint} ${selectedObjIssue !== 'ok' ? styles.objInspHintWarn : ''}`}>
+            {selectedObjIssue === 'ok' && 'Меняйте числа или тяните жёлтые углы на схеме.'}
+            {selectedObjIssue === 'outside' && 'Объект должен целиком остаться внутри контура зала.'}
+            {selectedObjIssue === 'overlap' && 'Отодвиньте от другого объекта — пересечения недопустимы.'}
+            {selectedObjIssue === 'both' && 'Сдвиньте в зал и уберите наложение на другой объект.'}
+          </p>
+          <div className={styles.objInspGrid}>
+            <label className={styles.objInspLab} htmlFor={`hall-obj-w-${selectedObj.id}`}>Ширина</label>
+            <input
+              id={`hall-obj-w-${selectedObj.id}`}
+              className={styles.objInspInput}
+              type="number"
+              min={MIN_OBJ}
+              max={VB_W - VB_PAD * 2}
+              value={Math.round(selectedObj.w)}
+              onChange={(e) => patchSelectedObj({ w: e.target.value })}
+            />
+            <label className={styles.objInspLab} htmlFor={`hall-obj-h-${selectedObj.id}`}>Высота</label>
+            <input
+              id={`hall-obj-h-${selectedObj.id}`}
+              className={styles.objInspInput}
+              type="number"
+              min={MIN_OBJ}
+              max={VB_H - VB_PAD * 2}
+              value={Math.round(selectedObj.h)}
+              onChange={(e) => patchSelectedObj({ h: e.target.value })}
+            />
+            <label className={styles.objInspLab} htmlFor={`hall-obj-rx-${selectedObj.id}`}>Скругление</label>
+            <input
+              id={`hall-obj-rx-${selectedObj.id}`}
+              className={styles.objInspInput}
+              type="number"
+              min={0}
+              max={Math.floor(Math.min(selectedObj.w, selectedObj.h) / 2)}
+              value={Math.round(selectedObj.rx)}
+              onChange={(e) => patchSelectedObj({ rx: e.target.value })}
+            />
+            <label className={styles.objInspLab} htmlFor={`hall-obj-lbl-${selectedObj.id}`}>Подпись</label>
+            <input
+              id={`hall-obj-lbl-${selectedObj.id}`}
+              className={styles.objInspInput}
+              type="text"
+              maxLength={24}
+              placeholder="надпись на схеме"
+              value={selectedObj.label ?? ''}
+              onChange={(e) => patchSelectedObj({ label: e.target.value })}
+            />
+          </div>
         </div>
       )}
 
@@ -394,60 +622,88 @@ const HallEditor = ({ restaurantId, onDone }) => {
 
         {/* ── Objects ───────────────────────────────────────── */}
         {objects.map((obj) => {
-          const pr = OBJECT_PRESETS[obj.type];
+          const pr = presetFor(obj.type);
           const sel = selObjId === obj.id && tool === 'select';
           const inSelect = tool === 'select';
+          const hw = obj.w / 2;
+          const hh = obj.h / 2;
+          const invalid = !isHallDecorGeomValid(points, obj, objects);
           return (
-            <g
-              key={obj.id}
-              style={{ cursor: inSelect ? 'move' : 'default', pointerEvents: inSelect ? 'all' : 'none' }}
-              onPointerDown={inSelect ? (e) => onObjDown(e, obj) : undefined}
-              onClick={inSelect ? (e) => e.stopPropagation() : undefined}
-            >
-              {/* selection ring */}
+            <g key={obj.id} style={{ pointerEvents: inSelect ? 'all' : 'none' }}>
               {sel && (
                 <rect
-                  x={obj.x - obj.w / 2 - 5} y={obj.y - obj.h / 2 - 5}
+                  x={obj.x - hw - 5} y={obj.y - hh - 5}
                   width={obj.w + 10} height={obj.h + 10} rx={obj.rx + 5}
-                  fill="none" stroke="rgba(242,208,154,0.45)"
+                  fill="none"
+                  stroke={invalid ? 'rgba(248,113,113,0.88)' : 'rgba(242,208,154,0.45)'}
                   strokeWidth="1.2" strokeDasharray="5 3"
+                  style={{ pointerEvents: 'none' }}
                 />
               )}
               <rect
-                x={obj.x - obj.w / 2} y={obj.y - obj.h / 2}
+                x={obj.x - hw} y={obj.y - hh}
                 width={obj.w} height={obj.h} rx={obj.rx}
-                fill={pr.fill}
-                stroke={sel ? '#f2d09a' : pr.stroke}
-                strokeWidth={sel ? 2 : 1.5}
+                className={invalid ? styles.decorOutside : undefined}
+                fill={invalid ? undefined : pr.fill}
+                stroke={invalid ? undefined : (sel ? '#f2d09a' : pr.stroke)}
+                strokeWidth={invalid ? undefined : (sel ? 2 : 1.5)}
+                style={{ cursor: inSelect ? 'move' : 'default' }}
+                onPointerDown={inSelect ? (e) => onObjDown(e, obj) : undefined}
+                onClick={inSelect ? (e) => e.stopPropagation() : undefined}
               />
               {obj.label && (
                 <text
                   x={obj.x} y={obj.y}
                   textAnchor="middle" dominantBaseline="middle"
                   className={styles.objLabel}
+                  style={{ pointerEvents: 'none', fill: invalid ? 'rgba(254,202,202,0.92)' : undefined }}
                 >
                   {obj.label}
                 </text>
               )}
+              {sel && (['nw', 'ne', 'sw', 'se']).map((c) => {
+                const hx = c.includes('e') ? obj.x + hw : obj.x - hw;
+                const hy = c.includes('s') ? obj.y + hh : obj.y - hh;
+                return (
+                  <circle
+                    key={c}
+                    cx={hx}
+                    cy={hy}
+                    r={8}
+                    className={styles.resizeHandle}
+                    style={{ cursor: `${c}-resize` }}
+                    onPointerDown={(e) => onResizeHandleDown(e, obj, c)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                );
+              })}
             </g>
           );
         })}
 
         {/* ── Object ghost preview (object tool + cursor) ─────── */}
         {tool === 'object' && cursor && (() => {
-          const pr = OBJECT_PRESETS[objType];
+          const pr = presetFor(objType);
+          const ghost = { x: cursor.x, y: cursor.y, w: pr.w, h: pr.h, rx: pr.rx, type: objType, id: '__ghost__' };
+          const ghostBad = !isHallDecorGeomValid(points, ghost, objects);
           return (
-            <g style={{ pointerEvents: 'none', opacity: 0.45 }}>
+            <g style={{ pointerEvents: 'none', opacity: ghostBad ? 0.72 : 0.45 }}>
               <rect
                 x={cursor.x - pr.w / 2} y={cursor.y - pr.h / 2}
                 width={pr.w} height={pr.h} rx={pr.rx}
-                fill={pr.fill} stroke={pr.stroke}
+                className={ghostBad ? styles.decorGhostInvalid : undefined}
+                fill={ghostBad ? undefined : pr.fill}
+                stroke={ghostBad ? undefined : pr.stroke}
                 strokeWidth="1.5" strokeDasharray="6 3"
               />
               {pr.label && (
                 <text x={cursor.x} y={cursor.y}
                   textAnchor="middle" dominantBaseline="middle"
-                  className={styles.objLabel} style={{ opacity: 0.65 }}>
+                  className={styles.objLabel}
+                  style={{
+                    opacity: ghostBad ? 0.95 : 0.65,
+                    fill: ghostBad ? 'rgba(254,202,202,0.95)' : undefined,
+                  }}>
                   {pr.label}
                 </text>
               )}

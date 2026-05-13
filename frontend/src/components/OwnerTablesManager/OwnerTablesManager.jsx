@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { tablesApi } from '../../api/tables.api';
 import { restaurantsApi } from '../../api/restaurants.api';
 import { computeTableLayouts } from '../../utils/tableFloorLayout';
+import {
+  getHallModeForEditor,
+  isTableLayoutInsideHall,
+  tableLayoutOverlapsAnyDecor,
+  tableLayoutOverlapsAnyOtherTable,
+} from '../../utils/hallBoundary';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import HallEditor, { OBJECT_PRESETS } from '../HallEditor/HallEditor';
 import styles from './OwnerTablesManager.module.css';
@@ -121,6 +127,10 @@ const OwnerTablesManager = ({ restaurantId }) => {
   // adjacency: selectedId → Set of adjacent table IDs
   const [adjacencyMap, setAdjacencyMap] = useState({}); // {tableId: number[]}
   const [savingAdjacency, setSavingAdjacency] = useState(false);
+  const [savingFloor, setSavingFloor] = useState(false);
+  const [floorSaveNotice, setFloorSaveNotice] = useState('');
+  /** Короткое сообщение под схемой (без верхнего баннера), напр. нет контура для сохранения */
+  const [floorInlineMsg, setFloorInlineMsg] = useState('');
 
   // Custom hall: schema loaded from localStorage via HallEditor's own key
   const [customSchema, setCustomSchema] = useState(null); // { polygonPoints, entranceLine }
@@ -247,6 +257,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
   };
 
   const handleSchemeChange = (nextId) => {
+    setFloorInlineMsg('');
     setSchemeId(nextId);
     if (nextId === 'custom') {
       setEditingHall(!(customSchema?.polygonPoints?.length >= 3));
@@ -271,11 +282,83 @@ const OwnerTablesManager = ({ restaurantId }) => {
     return computeTableLayouts(tablesWithDrag);
   }, [tables, dragPos]);
 
+  const hallMode = useMemo(
+    () =>
+      getHallModeForEditor(
+        schemeId,
+        customSchema?.polygonPoints?.length >= 3 ? customSchema.polygonPoints : null,
+        selectedScheme.hallPath,
+      ),
+    [schemeId, customSchema, selectedScheme.hallPath],
+  );
+
+  const invalidTableIds = useMemo(() => {
+    const set = new Set();
+    const decorObjs = schemeId === 'custom' ? (customSchema?.objects ?? []) : [];
+    layouts.forEach((layout) => {
+      if (!isTableLayoutInsideHall(hallMode, layout)) set.add(layout.table.id);
+      if (decorObjs.length > 0 && tableLayoutOverlapsAnyDecor(layout, decorObjs)) set.add(layout.table.id);
+      if (tableLayoutOverlapsAnyOtherTable(layout, layouts)) set.add(layout.table.id);
+    });
+    return set;
+  }, [layouts, hallMode, schemeId, customSchema]);
+
+  useEffect(() => {
+    if (customSchema?.polygonPoints?.length >= 3) setFloorInlineMsg('');
+  }, [customSchema?.polygonPoints?.length]);
+
+  const handleSaveFloor = useCallback(async () => {
+    if (!restaurantId) return;
+    const layoutList = computeTableLayouts(tables);
+    const decorObjs = schemeId === 'custom' ? (customSchema?.objects ?? []) : [];
+    const hasInvalid = layoutList.some(
+      (l) => !isTableLayoutInsideHall(hallMode, l)
+        || (decorObjs.length > 0 && tableLayoutOverlapsAnyDecor(l, decorObjs))
+        || tableLayoutOverlapsAnyOtherTable(l, layoutList),
+    );
+    if (hasInvalid) return;
+
+    setSavingFloor(true);
+    setFloorSaveNotice('');
+    setFloorInlineMsg('');
+    setError('');
+    try {
+      if (schemeId === 'custom') {
+        let payload = null;
+        if (customSchema?.polygonPoints?.length >= 3) {
+          payload = JSON.stringify(customSchema);
+        } else {
+          try {
+            const raw = localStorage.getItem(HALL_SCHEMA_KEY(restaurantId));
+            if (raw) payload = raw;
+          } catch { /* ignore */ }
+        }
+        if (!payload) {
+          setFloorInlineMsg('Сначала задайте контур зала в режиме «Свой» или выберите шаблон.');
+          return;
+        }
+        await restaurantsApi.updateHallSchema(restaurantId, payload);
+      } else {
+        await restaurantsApi.updateHallSchema(
+          restaurantId,
+          JSON.stringify({ templateId: schemeId }),
+        );
+      }
+      setFloorSaveNotice('Схема зала сохранена на сервере');
+      setTimeout(() => setFloorSaveNotice(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Не удалось сохранить схему');
+    } finally {
+      setSavingFloor(false);
+    }
+  }, [restaurantId, schemeId, customSchema, tables, hallMode]);
+
   const handleTablePointerDown = useCallback((e, tableId, cx, cy) => {
     if (tab !== 'editor') return;
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setSelectedId(tableId);
+    setError('');
     if (!svgRef.current) return;
     const svgPos = toSvgCoords(svgRef.current, e.clientX, e.clientY);
     dragRef.current = {
@@ -303,7 +386,20 @@ const OwnerTablesManager = ({ restaurantId }) => {
     const { tableId, cx, cy } = dragRef.current;
     dragRef.current = null;
     setDragPos((prev) => { const n = { ...prev }; delete n[tableId]; return n; });
-    setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, posX: cx, posY: cy } : t)));
+
+    const nextTables = tables.map((t) => (t.id === tableId ? { ...t, posX: cx, posY: cy } : t));
+    const nextLayouts = computeTableLayouts(nextTables);
+    const movedLayout = nextLayouts.find((l) => l.table.id === tableId);
+    setTables(nextTables);
+
+    if (!isTableLayoutInsideHall(hallMode, movedLayout)) return;
+
+    const decorObjs = schemeId === 'custom' ? (customSchema?.objects ?? []) : [];
+    if (decorObjs.length > 0 && tableLayoutOverlapsAnyDecor(movedLayout, decorObjs)) return;
+
+    if (tableLayoutOverlapsAnyOtherTable(movedLayout, nextLayouts)) return;
+
+    setError('');
     try {
       const { data } = await tablesApi.update(tableId, { posX: cx, posY: cy });
       if (data?.data) {
@@ -313,7 +409,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
     } catch {
       reload();
     }
-  }, [reload]);
+  }, [reload, tables, hallMode, schemeId, customSchema]);
 
   const cancelDrag = useCallback(() => {
     if (!dragRef.current) return;
@@ -331,6 +427,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
       const parsed = raw ? JSON.parse(raw) : null;
       setCustomSchema(parsed);
       if (parsed?.polygonPoints?.length >= 3) {
+        setFloorInlineMsg('');
         restaurantsApi.updateHallSchema(restaurantId, raw).catch(() => {});
       }
     } catch { /* silent */ }
@@ -609,7 +706,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
             {/* SVG canvas — always visible (HallEditor opens as modal) */}
             <p className={styles.editorHint}>
-              Перетащите столики, чтобы разместить их в зале. Позиция сохраняется автоматически при отпускании.
+              Перетащите столы: без красной подсветки позиция сохранится. Не ставьте столы друг на друга и на объекты плана. От вместимости стол на схеме удлиняется вдоль (глубина как у 4 мест).
             </p>
 
             {tables.length === 0 ? (
@@ -651,8 +748,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
                 {/* Custom schema objects (bar, stage, etc.) */}
                 {schemeId === 'custom' && customSchema?.objects?.map((obj) => {
-                  const pr = OBJECT_PRESETS[obj.type];
-                  if (!pr) return null;
+                  const pr = OBJECT_PRESETS[obj.type] || OBJECT_PRESETS.bar;
                   return (
                     <g key={obj.id} style={{ pointerEvents: 'none' }}>
                       <rect
@@ -722,6 +818,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   const { table, x, y, w, h, rx, cx, cy } = layout;
                   const isSelected = selectedId === table.id;
                   const isDragging = Boolean(dragPos[table.id]);
+                  const outOfHall = invalidTableIds.has(table.id);
                   return (
                     <g
                       key={table.id}
@@ -732,7 +829,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     >
                       <rect
                         width={w} height={h} rx={rx}
-                        className={`${styles.editorTableRect} ${isSelected ? styles.editorTableRectSelected : ''} ${!table.isAvailable ? styles.editorTableRectDisabled : ''}`}
+                        className={`${styles.editorTableRect} ${isSelected ? styles.editorTableRectSelected : ''} ${!table.isAvailable ? styles.editorTableRectDisabled : ''} ${outOfHall ? styles.editorTableRectInvalid : ''}`}
                         filter={isSelected ? 'url(#editorGlow)' : undefined}
                       />
                       <text x={w / 2} y={h / 2 - 6} textAnchor="middle" className={styles.editorTableNum}>
@@ -773,6 +870,33 @@ const OwnerTablesManager = ({ restaurantId }) => {
                 </div>
               </div>
             )}
+
+            <div className={styles.editorSaveZoneUnderPlan}>
+              <p className={styles.editorSaveZoneTitle}>Сохранение схемы</p>
+              <div className={styles.editorSaveStatusSlot} aria-live="polite">
+                {invalidTableIds.size > 0 ? (
+                  <p className={styles.editorSaveZoneWarnShort}>
+                    Красные столы: разведите (в т.ч. друг от друга), уберите с декора и верните в контур зала.
+                  </p>
+                ) : floorInlineMsg ? (
+                  <p className={styles.editorSaveZoneWarnShort}>{floorInlineMsg}</p>
+                ) : (
+                  <p className={styles.editorSaveMuted}>Можно сохранить.</p>
+                )}
+              </div>
+              {floorSaveNotice ? <p className={styles.editorSaveOk}>{floorSaveNotice}</p> : null}
+              <p className={styles.editorSaveZoneHint}>
+                Здесь фиксируются контур зала и выбранный шаблон. Столы подтягиваются в настройки, когда подсветка у них пропала.
+              </p>
+              <button
+                type="button"
+                className={`${styles.btnGold} ${styles.editorSaveZoneBtnUnder}`}
+                disabled={savingFloor || !restaurantId || invalidTableIds.size > 0}
+                onClick={handleSaveFloor}
+              >
+                {savingFloor ? 'Сохранение…' : 'Сохранить схему зала'}
+              </button>
+            </div>
           </div>
 
           {/* Right panel */}

@@ -4,4 +4,5 @@ ALTER TABLE "tables"
 
 ALTER TABLE "reservations"
   ADD COLUMN IF NOT EXISTS "extraChair" BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS "combinedWithTableId" INTEGER;
+  ADD COLUMN IF NOT EXISTS "combinedWithTableId" INTEGER,
+  ADD COLUMN IF NOT EXISTS "combinedWithTableIds" JSONB NOT NULL DEFAULT '[]';

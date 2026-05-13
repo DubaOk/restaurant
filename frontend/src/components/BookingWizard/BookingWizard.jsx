@@ -38,8 +38,64 @@ function validateSlot(date, time, openTime, closeTime) {
   return null;
 }
 
-/** Priority algorithm: ideal → overflow → merge */
-function findBestOption(tables, adjacentPairs, guests) {
+const unique = (arr) => [...new Set(arr)];
+
+const listMergedCapacity = (tables) => {
+  const joinsCount = Math.max(0, tables.length - 1);
+  return tables.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) - (joinsCount * 2);
+};
+
+const listMergedMax = (tables) => {
+  const joinsCount = Math.max(0, tables.length - 1);
+  return tables.reduce((sum, t) => sum + (Number(t.maxCapacity) || Number(t.capacity) || 0), 0) - (joinsCount * 2);
+};
+
+const buildConnectedMergeCandidates = (tables) => {
+  const byId = new Map(tables.map((t) => [t.id, t]));
+  const candidates = [];
+  const seen = new Set();
+
+  const freeIds = tables
+    .filter((t) => t.isAvailable && t.slotKnown && !t.occupiedForSlot)
+    .map((t) => t.id);
+
+  const expand = (seedId) => {
+    const stack = [[seedId]];
+    while (stack.length) {
+      const group = stack.pop();
+      const key = unique(group).sort((a, b) => a - b).join('-');
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      if (group.length >= 2) {
+        const groupTables = group.map((id) => byId.get(id)).filter(Boolean);
+        candidates.push({
+          tableIds: group,
+          combinedCapacity: listMergedCapacity(groupTables),
+          combinedMax: listMergedMax(groupTables),
+        });
+      }
+
+      for (const id of group) {
+        const table = byId.get(id);
+        const neigh = Array.isArray(table?.adjacentTableIds) ? table.adjacentTableIds : [];
+        for (const nId of neigh) {
+          if (!freeIds.includes(nId)) continue;
+          if (group.includes(nId)) continue;
+          const next = unique([...group, nId]);
+          // prevent huge combinations
+          if (next.length <= 5) stack.push(next);
+        }
+      }
+    }
+  };
+
+  for (const id of freeIds) expand(id);
+  return candidates;
+};
+
+/** Priority algorithm: ideal → overflow → merge (supports 2+ tables) */
+function findBestOption(tables, guests) {
   // 1) Ideal: free, capacity >= guests
   const ideal = tables
     .filter((t) => t.isAvailable && !t.occupiedForSlot && t.slotKnown && t.capacity >= guests)
@@ -59,17 +115,16 @@ function findBestOption(tables, adjacentPairs, guests) {
     .sort((a, b) => (a.maxCapacity || a.capacity) - (b.maxCapacity || b.capacity));
   if (overflow.length > 0) return { type: 'overflow', table: overflow[0] };
 
-  // 3) Merge: free adjacent pair with combined capacity >= guests
-  const pair = adjacentPairs
-    .filter((p) => p.combinedCapacity >= guests)
-    .sort((a, b) => a.combinedCapacity - b.combinedCapacity)[0];
-  if (pair) return { type: 'merged', pair };
+  const mergeCandidates = buildConnectedMergeCandidates(tables);
+  const merged = mergeCandidates
+    .filter((c) => c.combinedCapacity >= guests)
+    .sort((a, b) => a.combinedCapacity - b.combinedCapacity || a.tableIds.length - b.tableIds.length)[0];
+  if (merged) return { type: 'merged', pair: merged };
 
-  // Try with combinedMax (overflow on merged)
-  const pairWithOverflow = adjacentPairs
-    .filter((p) => (p.combinedMax || p.combinedCapacity) >= guests)
+  const mergedOverflow = mergeCandidates
+    .filter((c) => (c.combinedMax || c.combinedCapacity) >= guests)
     .sort((a, b) => (a.combinedMax || a.combinedCapacity) - (b.combinedMax || b.combinedCapacity))[0];
-  if (pairWithOverflow) return { type: 'merged', pair: pairWithOverflow };
+  if (mergedOverflow) return { type: 'merged', pair: mergedOverflow };
 
   return null;
 }
@@ -88,7 +143,6 @@ const BookingWizard = ({
   const [guestsCount, setGuestsCount] = useState(2);
 
   const [tables, setTables]         = useState([]);
-  const [adjacentPairs, setAdjacentPairs] = useState([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState(null);
   const [selectedMergedPair, setSelectedMergedPair] = useState(null); // {tableIds, combinedCapacity}
@@ -115,10 +169,24 @@ const BookingWizard = ({
     [selectedTable, selectedMergedPair, guestsCount],
   );
 
+  const mergedDisplayCapacity = useMemo(() => {
+    if (!selectedMergedPair) return null;
+    const base = Number(selectedMergedPair.combinedCapacity) || 0;
+    const max = Number(selectedMergedPair.combinedMax) || base;
+    // If current guests only fit with overflow buffer, show effective max.
+    if (guestsCount > base && guestsCount <= max) return max;
+    return base;
+  }, [selectedMergedPair, guestsCount]);
+
+  const mergedNeedsOverflow = useMemo(() => {
+    if (!selectedMergedPair) return false;
+    return guestsCount > (Number(selectedMergedPair.combinedCapacity) || 0);
+  }, [selectedMergedPair, guestsCount]);
+
   // Re-run algorithm when tables / guests change
   useEffect(() => {
     if (tables.length === 0) return;
-    const best = findBestOption(tables, adjacentPairs, guestsCount);
+    const best = findBestOption(tables, guestsCount);
     setSuggestion(best);
     if (best?.type === 'single' || best?.type === 'overflow') {
       setSelectedTableId(best.table.id);
@@ -129,7 +197,7 @@ const BookingWizard = ({
       setSelectedMergedPair(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, adjacentPairs, guestsCount]);
+  }, [tables, guestsCount]);
 
   const step1Error = validateSlot(date, time, openTime, closeTime);
   const step1Valid = !step1Error && Boolean(date && time);
@@ -143,14 +211,12 @@ const BookingWizard = ({
         at: new Date(dateTimeStr).toISOString(),
       });
       setTables(data.data || []);
-      setAdjacentPairs(data.adjacentPairs || []);
       setSelectedTableId(null);
       setSelectedMergedPair(null);
       setSuggestion(null);
       setStep(1);
     } catch {
       setTables([]);
-      setAdjacentPairs([]);
       setStep(1);
     } finally {
       setLoadingTables(false);
@@ -173,10 +239,14 @@ const BookingWizard = ({
       const combinedWithTableId = selectedMergedPair
         ? selectedMergedPair.tableIds[1]
         : undefined;
+      const combinedWithTableIds = selectedMergedPair
+        ? selectedMergedPair.tableIds.slice(1)
+        : undefined;
       await reservationsApi.create({
         restaurantId: parseInt(restaurantId, 10),
         tableId,
         ...(combinedWithTableId ? { combinedWithTableId } : {}),
+        ...(combinedWithTableIds?.length ? { combinedWithTableIds } : {}),
         date: new Date(dateTimeStr).toISOString(),
         guestsCount,
         comment,
@@ -194,7 +264,6 @@ const BookingWizard = ({
     setTime('19:00');
     setGuestsCount(2);
     setTables([]);
-    setAdjacentPairs([]);
     setSelectedTableId(null);
     setSelectedMergedPair(null);
     setSuggestion(null);
@@ -315,7 +384,14 @@ const BookingWizard = ({
                   const t = tables.find((x) => x.id === id);
                   return t ? `№${t.number}` : `#${id}`;
                 }).join(' и ')}&nbsp;
-                — получится <strong>{suggestion.pair.combinedCapacity} мест</strong>
+                — получится <strong>
+                  {guestsCount > suggestion.pair.combinedCapacity
+                    ? (suggestion.pair.combinedMax || suggestion.pair.combinedCapacity)
+                    : suggestion.pair.combinedCapacity} мест
+                </strong>
+                {guestsCount > suggestion.pair.combinedCapacity && (
+                  <> (с дополнительными местами)</>
+                )}
               </span>
               <button
                 type="button"
@@ -354,7 +430,7 @@ const BookingWizard = ({
                 bookingStretch
                 suggestedPairIds={!selectedMergedPair && suggestion?.type === 'merged' ? suggestion.pair.tableIds : null}
                 selectedMergedIds={selectedMergedPair ? selectedMergedPair.tableIds : null}
-                mergedCapacity={selectedMergedPair?.combinedCapacity || null}
+                mergedCapacity={mergedDisplayCapacity}
                 onSelectMergedPair={
                   suggestion?.type === 'merged' && !selectedMergedPair
                     ? () => setSelectedMergedPair(suggestion.pair)
@@ -368,8 +444,11 @@ const BookingWizard = ({
           {selectedMergedPair ? (
             <div className={styles.selectionRow}>
               <span className={`${styles.selectionBadge} ${styles.selectionBadgeMerge}`}>
-                ⟺ Столы объединены · {selectedMergedPair.combinedCapacity} мест
+                ⟺ Столы объединены · {mergedDisplayCapacity} мест
               </span>
+              {mergedNeedsOverflow && (
+                <span className={styles.conflictBadge}>С доп. местами, будет чуть теснее</span>
+              )}
               <button
                 type="button"
                 className={styles.mergeCancelBtn}
@@ -423,10 +502,18 @@ const BookingWizard = ({
               <span className={styles.summaryLabel}>Столик</span>
               <span className={styles.summaryValue}>
                 {selectedMergedPair
-                  ? `Объединённые столы · ${selectedMergedPair.combinedCapacity} мест`
+                  ? `Объединённые столы · ${mergedDisplayCapacity} мест`
                   : `№${selectedTable?.number} · до ${isOverflow ? (selectedTable?.maxCapacity || selectedTable?.capacity) : selectedTable?.capacity} мест`
                 }
               </span>
+              {mergedNeedsOverflow && (
+                <>
+                  <span className={styles.summaryLabel} />
+                  <span className={`${styles.summaryValue} ${styles.summaryOverflowNote}`}>
+                    ⚠ Для этой компании используются дополнительные места
+                  </span>
+                </>
+              )}
               {isOverflow && (
                 <>
                   <span className={styles.summaryLabel} />

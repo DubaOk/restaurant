@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeTableLayouts } from '../../utils/tableFloorLayout';
+import { OBJECT_PRESETS } from '../HallEditor/HallEditor';
 import styles from './TableFloorPlan.module.css';
 
 const VIEW_W = 1000;
@@ -108,14 +109,6 @@ function renderTemplateDecor(templateId) {
   return null;
 }
 
-/* ─── Object presets (same palette as HallEditor) ────────────── */
-const OBJ_PRESETS = {
-  bar:        { fill: 'rgba(201,169,98,0.22)',  stroke: 'rgba(201,169,98,0.72)'  },
-  stage:      { fill: 'rgba(148,100,210,0.22)', stroke: 'rgba(148,100,210,0.72)' },
-  dancefloor: { fill: 'rgba(72,180,160,0.22)',  stroke: 'rgba(72,180,160,0.72)'  },
-  pillar:     { fill: 'rgba(120,132,150,0.45)', stroke: 'rgba(140,152,172,0.85)' },
-};
-
 const LABELS = {
   free: 'Свободен',
   booked: 'Занят на это время',
@@ -169,9 +162,9 @@ function TableFloorPlan({
   staticMode = false,
   /** JSON string from restaurant.hallSchema */
   hallSchema,
-  /** IDs of two tables forming a suggested merge pair (pulse effect) */
+  /** IDs of tables forming a suggested merge group (pulse effect) */
   suggestedPairIds = null,
-  /** IDs of two tables selected as a merged pair (bridge + glow) */
+  /** IDs of tables selected as a merged group (bridge + glow) */
   selectedMergedIds = null,
   /** Combined capacity to show on the merge bridge badge */
   mergedCapacity = null,
@@ -190,16 +183,6 @@ function TableFloorPlan({
   const schema = useMemo(() => parseHallSchema(hallSchema), [hallSchema]);
 
   const closePopover = useCallback(() => setPopover(null), []);
-
-  useEffect(() => {
-    if (!popover) return undefined;
-    const onDoc = (e) => {
-      if (viewportRef.current?.contains(e.target)) return;
-      setPopover(null);
-    };
-    document.addEventListener('click', onDoc);
-    return () => document.removeEventListener('click', onDoc);
-  }, [popover]);
 
   /* Zoom via wheel — disabled in staticMode */
   useEffect(() => {
@@ -255,8 +238,6 @@ function TableFloorPlan({
   const handleTableClick = (ev, layout) => {
     ev.stopPropagation();
     const { table } = layout;
-    const st = statusForTable(table);
-    setPopover({ id: table.id, screenX: ev.clientX, screenY: ev.clientY, table, st });
     if (layoutOnly && onSelectTable) onSelectTable(table.id);
     if (!layoutOnly) {
       // If clicking a suggested pair table → trigger merge selection
@@ -272,36 +253,53 @@ function TableFloorPlan({
 
   const renderMergeBridge = () => {
     if (!selectedMergedIds || selectedMergedIds.length < 2) return null;
-    const l1 = layouts.find((l) => l.table.id === selectedMergedIds[0]);
-    const l2 = layouts.find((l) => l.table.id === selectedMergedIds[1]);
-    if (!l1 || !l2) return null;
-    const cx1 = l1.x + l1.w / 2, cy1 = l1.y + l1.h / 2;
-    const cx2 = l2.x + l2.w / 2, cy2 = l2.y + l2.h / 2;
-    const midX = (cx1 + cx2) / 2;
-    const midY = (cy1 + cy2) / 2;
-    const bridgeH = Math.min(l1.h, l2.h) * 0.5;
-    const dx = cx2 - cx1, dy = cy2 - cy1;
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-    const len   = Math.sqrt(dx * dx + dy * dy);
+    const selectedLayouts = selectedMergedIds
+      .map((id) => layouts.find((l) => l.table.id === id))
+      .filter(Boolean);
+    if (selectedLayouts.length < 2) return null;
+
+    const points = selectedLayouts.map((l) => ({
+      id: l.table.id,
+      x: l.x + l.w / 2,
+      y: l.y + l.h / 2,
+      adj: Array.isArray(l.table.adjacentTableIds) ? l.table.adjacentTableIds : [],
+    }));
+    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+
+    const bridges = [];
+    for (const p1 of points) {
+      for (const p2 of points) {
+        if (p2.id <= p1.id) continue;
+        if (!p1.adj.includes(p2.id) && !p2.adj.includes(p1.id)) continue;
+        bridges.push(
+          <line
+            key={`bridge-${p1.id}-${p2.id}`}
+            x1={p1.x}
+            y1={p1.y}
+            x2={p2.x}
+            y2={p2.y}
+            stroke="rgba(80, 200, 155, 0.22)"
+            strokeWidth="18"
+            strokeLinecap="round"
+          />
+        );
+      }
+    }
+
     return (
       <g className={styles.mergeBridge}>
-        {/* Connection fill */}
-        <rect
-          x={-len / 2} y={-bridgeH / 2}
-          width={len} height={bridgeH} rx={bridgeH / 2}
-          fill="rgba(80, 200, 155, 0.16)" stroke="none"
-          transform={`translate(${midX},${midY}) rotate(${angle})`}
-        />
+        {bridges}
         {/* Capacity badge */}
-        <circle cx={midX} cy={midY} r={22}
+        <circle cx={cx} cy={cy} r={22}
           fill="rgba(14, 22, 28, 0.85)"
           stroke="rgba(80, 200, 155, 0.75)"
           strokeWidth="1.5"
         />
-        <text x={midX} y={midY - 4} textAnchor="middle" className={styles.tableCap} style={{ fontSize: '13px', fill: 'rgba(80,210,160,0.95)' }}>
+        <text x={cx} y={cy - 4} textAnchor="middle" className={styles.tableCap} style={{ fontSize: '13px', fill: 'rgba(80,210,160,0.95)' }}>
           {mergedCapacity}
         </text>
-        <text x={midX} y={midY + 10} textAnchor="middle" className={styles.tableCapSub} style={{ fontSize: '9px' }}>
+        <text x={cx} y={cy + 10} textAnchor="middle" className={styles.tableCapSub} style={{ fontSize: '9px' }}>
           мест
         </text>
       </g>
@@ -353,7 +351,7 @@ function TableFloorPlan({
 
           {/* Decorative objects (bar, stage, etc.) */}
           {schema.objects?.map((obj) => {
-            const pr = OBJ_PRESETS[obj.type] || OBJ_PRESETS.bar;
+            const pr = OBJECT_PRESETS[obj.type] || OBJECT_PRESETS.bar;
             return (
               <g key={obj.id} style={{ pointerEvents: 'none' }}>
                 <rect
@@ -511,8 +509,27 @@ function TableFloorPlan({
                   className={`${styles.tableGroup} ${hovered ? styles.tableHovered : ''} ${dimOthers && hoveredId !== table.id ? styles.peerFade : ''}`}
                   transform={`translate(${x}, ${y})`}
                   style={{ cursor: isClickable ? 'pointer' : 'default' }}
-                  onMouseEnter={() => setHoveredId(table.id)}
-                  onMouseLeave={() => setHoveredId(null)}
+                  onMouseEnter={(ev) => {
+                    setHoveredId(table.id);
+                    setPopover({
+                      id: table.id,
+                      screenX: ev.clientX,
+                      screenY: ev.clientY,
+                      table,
+                      st,
+                    });
+                  }}
+                  onMouseMove={(ev) => {
+                    setPopover((prev) =>
+                      prev?.id === table.id
+                        ? { ...prev, screenX: ev.clientX, screenY: ev.clientY }
+                        : prev
+                    );
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredId(null);
+                    closePopover();
+                  }}
                   onClick={(ev) => handleTableClick(ev, layout)}
                 >
                   <rect
@@ -546,9 +563,6 @@ function TableFloorPlan({
           <p id="seat-tip-title" className={styles.popTitle}>Стол №{popover.table.number}</p>
           <p className={styles.popLine}>До {popover.table.capacity} персон</p>
           <p className={styles.popStatus}>{LABELS[popover.st]}</p>
-          {(popover.st === 'free' || popover.st === 'unknown') && (
-            <button type="button" className={styles.popDismiss} onClick={closePopover}>Ок</button>
-          )}
         </div>
       )}
     </div>

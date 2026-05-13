@@ -119,6 +119,29 @@
 
 .btnDone:hover { filter: brightness(1.08); }
 
+.btnDone:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.btnDone:disabled:hover {
+  filter: none;
+}
+
+/* Декор вне контура зала */
+.decorOutside {
+  fill: rgba(120, 28, 28, 0.38);
+  stroke: rgba(248, 113, 113, 0.95);
+  stroke-width: 2.2px;
+}
+
+.decorGhostInvalid {
+  fill: rgba(120, 28, 28, 0.42);
+  stroke: rgba(248, 113, 113, 0.92);
+  stroke-width: 2px;
+}
+
 /* ═══ Object sub-toolbar ════════════════════════════════════ */
 .objBar {
   display: flex;
@@ -157,6 +180,115 @@
 .objTypeBtnActive {
   background: rgba(255, 255, 255, 0.05);
   font-weight: 600;
+}
+
+/* ═══ Selected object inspector (select tool) ═══════════════ */
+.objInspector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+  padding: 0.55rem 0.78rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid rgba(242, 208, 154, 0.18);
+  background: rgba(18, 24, 34, 0.82);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.objInspectorAlert {
+  border-color: rgba(248, 113, 113, 0.38);
+  background: linear-gradient(135deg, rgba(48, 22, 26, 0.45) 0%, rgba(18, 22, 30, 0.88) 55%);
+  box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.75);
+}
+
+.objInspHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.objInspTitle {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(184, 154, 99, 0.88);
+}
+
+.objInspBadge {
+  flex-shrink: 0;
+  padding: 0.2rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.objInspBadgeOk {
+  color: #86efac;
+  background: rgba(22, 101, 52, 0.28);
+  border-color: rgba(74, 222, 128, 0.28);
+}
+
+.objInspBadgeWarn {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.35);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.objInspHint {
+  margin: 0;
+  min-height: 2.35rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.69rem;
+  line-height: 1.38;
+  letter-spacing: 0.01em;
+  color: #8b95a8;
+}
+
+.objInspHintWarn {
+  color: #e8b8b8;
+}
+
+.objInspGrid {
+  display: grid;
+  grid-template-columns: 7.2rem 1fr;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
+.objInspLab {
+  font-size: 0.7rem;
+  color: #9aa3b2;
+}
+
+.objInspInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.28rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 11, 18, 0.9);
+  color: #e8ecf0;
+  font-size: 0.78rem;
+}
+
+.objInspInput:focus {
+  outline: none;
+  border-color: rgba(242, 208, 154, 0.45);
+}
+
+.resizeHandle {
+  fill: rgba(242, 208, 154, 0.95);
+  stroke: rgba(20, 24, 32, 0.9);
+  stroke-width: 1.5;
+}
+
+.resizeHandle:hover {
+  fill: #fff4d6;
 }
 
 /* ═══ SVG canvas ════════════════════════════════════════════ */

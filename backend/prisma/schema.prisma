@@ -140,6 +140,7 @@ model Reservation {
   bonusesUsed          Int               @default(0)
   extraChair           Boolean           @default(false)
   combinedWithTableId  Int?
+  combinedWithTableIds Json              @default("[]")
   createdAt            DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
