@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useValidationTooltip } from '../../hooks/useValidationTooltip';
 import { reservationsApi } from '../../api/reservations.api';
 import { tablesApi } from '../../api/tables.api';
-import TableFloorPlan, { pickStatus, canPreselectBookingTable } from '../TableFloorPlan/TableFloorPlan';
+import TableFloorPlan, { pickStatus } from '../TableFloorPlan/TableFloorPlan';
 import DatePicker from '../DatePicker/DatePicker';
 import TimePicker from '../TimePicker/TimePicker';
 import styles from './BookingWizard.module.css';
@@ -11,6 +12,25 @@ const STEP_LABELS = ['Дата и время', 'Выбор столика', 'П�
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function maxBookingISO(daysAhead = 90) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatBookingPreview(dateIso, timeStr) {
+  if (!dateIso || !timeStr) return null;
+  const dt = new Date(`${dateIso}T${timeStr}`);
+  if (Number.isNaN(dt.getTime())) return null;
+  const datePart = dt.toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const timePart = dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return { datePart, timePart, full: `${datePart}, ${timePart}` };
 }
 
 function pluralGuests(n) {
@@ -40,15 +60,17 @@ function validateSlot(date, time, openTime, closeTime) {
 
 const unique = (arr) => [...new Set(arr)];
 
-const listMergedCapacity = (tables) => {
-  const joinsCount = Math.max(0, tables.length - 1);
-  return tables.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) - (joinsCount * 2);
-};
+/** Если свободных мест у одного стола не больше этого — объединение не предлагаем (хватает «ровного» стола) */
+const MAX_SPARE_SEATS_FOR_OBVIOUS_SINGLE = 2;
 
-const listMergedMax = (tables) => {
-  const joinsCount = Math.max(0, tables.length - 1);
-  return tables.reduce((sum, t) => sum + (Number(t.maxCapacity) || Number(t.capacity) || 0), 0) - (joinsCount * 2);
-};
+/** С этого числа гостей показываем объединение как альтернативу просторному одному столу (оба варианта на выбор) */
+const MERGE_AS_ALT_FROM_GUESTS = 6;
+
+const listMergedCapacity = (groupTables) =>
+  groupTables.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0);
+
+const listMergedMax = (groupTables) =>
+  groupTables.reduce((sum, t) => sum + (Number(t.maxCapacity) || Number(t.capacity) || 0), 0);
 
 const buildConnectedMergeCandidates = (tables) => {
   const byId = new Map(tables.map((t) => [t.id, t]));
@@ -84,7 +106,7 @@ const buildConnectedMergeCandidates = (tables) => {
           if (group.includes(nId)) continue;
           const next = unique([...group, nId]);
           // prevent huge combinations
-          if (next.length <= 5) stack.push(next);
+          if (next.length <= 8) stack.push(next);
         }
       }
     }
@@ -94,11 +116,92 @@ const buildConnectedMergeCandidates = (tables) => {
   return candidates;
 };
 
+function sortMergeOptionsForGuests(a, b, guests) {
+  const g = Number(guests) || 0;
+  const capA = a.combinedCapacity;
+  const capB = b.combinedCapacity;
+  const fitsNomA = capA >= g;
+  const fitsNomB = capB >= g;
+  if (fitsNomA !== fitsNomB) return fitsNomA ? -1 : 1;
+  if (capA !== capB) return capA - capB;
+  if (a.tableIds.length !== b.tableIds.length) return a.tableIds.length - b.tableIds.length;
+  return Math.min(...a.tableIds) - Math.min(...b.tableIds);
+}
+
+function isProperSubsetIds(subIds, superIds) {
+  const sub = unique(subIds);
+  const sup = unique(superIds);
+  if (sub.length >= sup.length) return false;
+  const setSup = new Set(sup);
+  return sub.every((id) => setSup.has(id));
+}
+
+/** Оставить только «минимальные» группы: не показывать 2+3+4+5, если уже хватает 2+3 */
+function filterMinimalMergeGroups(candidates) {
+  return candidates.filter((c) => {
+    return !candidates.some(
+      (other) => other !== c && isProperSubsetIds(other.tableIds, c.tableIds),
+    );
+  });
+}
+
+function listMergeOptionsThatFit(tables, guests) {
+  const g = Number(guests) || 0;
+  const byId = new Map(tables.map((t) => [t.id, t]));
+  const raw = buildConnectedMergeCandidates(tables);
+  const ok = raw.filter((c) => (c.combinedMax ?? c.combinedCapacity) >= g);
+  const minimal = filterMinimalMergeGroups(ok).filter(
+    (c) => c.tableIds.length >= 2 && !mergeGroupHasRedundantStandalone(c.tableIds, byId, g),
+  );
+  minimal.sort((a, b) => sortMergeOptionsForGuests(a, b, g));
+  const seen = new Set();
+  const out = [];
+  for (const c of minimal) {
+    const key = unique(c.tableIds)
+      .sort((x, y) => x - y)
+      .join('-');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
+}
+
+const nominalPartySlack = (guests) =>
+  guests >= 4 ? Math.max(4, Math.ceil(guests * 0.85)) : Math.max(2, Math.ceil(guests / 2));
+
+/** Не предлагать одиночный стол, если номинальная вместимость сильно больше числа гостей */
+const nominalPartyReasonable = (guests, nominalCap) => {
+  const g = Number(guests) || 0;
+  const cap = Number(nominalCap) || 0;
+  if (!g || !cap) return true;
+  if (g > cap) return true;
+  return cap - g <= nominalPartySlack(g);
+};
+
+/** Не предлагать объединение, если один из столов уже подходит под состав как отдельная бронь */
+function mergeGroupHasRedundantStandalone(tableIds, tablesById, guests) {
+  const g = Number(guests) || 0;
+  return tableIds.some((id) => {
+    const t = tablesById.get(id);
+    if (!t || !t.isAvailable || !t.slotKnown || t.occupiedForSlot) return false;
+    const cap = Number(t.capacity) || 0;
+    return cap >= g && nominalPartyReasonable(g, cap);
+  });
+}
+
 /** Priority algorithm: ideal → overflow → merge (supports 2+ tables) */
 function findBestOption(tables, guests) {
   // 1) Ideal: free, capacity >= guests
   const ideal = tables
-    .filter((t) => t.isAvailable && !t.occupiedForSlot && t.slotKnown && t.capacity >= guests)
+    .filter(
+      (t) =>
+        t.isAvailable &&
+        !t.occupiedForSlot &&
+        t.slotKnown &&
+        t.capacity >= guests &&
+        nominalPartyReasonable(guests, t.capacity),
+    )
     .sort((a, b) => a.capacity - b.capacity);
   if (ideal.length > 0) return { type: 'single', table: ideal[0] };
 
@@ -115,16 +218,8 @@ function findBestOption(tables, guests) {
     .sort((a, b) => (a.maxCapacity || a.capacity) - (b.maxCapacity || b.capacity));
   if (overflow.length > 0) return { type: 'overflow', table: overflow[0] };
 
-  const mergeCandidates = buildConnectedMergeCandidates(tables);
-  const merged = mergeCandidates
-    .filter((c) => c.combinedCapacity >= guests)
-    .sort((a, b) => a.combinedCapacity - b.combinedCapacity || a.tableIds.length - b.tableIds.length)[0];
-  if (merged) return { type: 'merged', pair: merged };
-
-  const mergedOverflow = mergeCandidates
-    .filter((c) => (c.combinedMax || c.combinedCapacity) >= guests)
-    .sort((a, b) => (a.combinedMax || a.combinedCapacity) - (b.combinedMax || b.combinedCapacity))[0];
-  if (mergedOverflow) return { type: 'merged', pair: mergedOverflow };
+  const mergeOpts = listMergeOptionsThatFit(tables, guests);
+  if (mergeOpts.length > 0) return { type: 'merged', pair: mergeOpts[0] };
 
   return null;
 }
@@ -153,6 +248,10 @@ const BookingWizard = ({
   const [error, setError]           = useState('');
   const [success, setSuccess]       = useState(false);
 
+  const dateFieldRef = useRef(null);
+  const timeFieldRef = useRef(null);
+  const { showMessage, dismissMessage, ValidationTooltipPortal } = useValidationTooltip();
+
   const dateTimeStr = date && time ? `${date}T${time}` : '';
 
   const selectedTable = useMemo(
@@ -173,37 +272,123 @@ const BookingWizard = ({
     if (!selectedMergedPair) return null;
     const base = Number(selectedMergedPair.combinedCapacity) || 0;
     const max = Number(selectedMergedPair.combinedMax) || base;
-    // If current guests only fit with overflow buffer, show effective max.
-    if (guestsCount > base && guestsCount <= max) return max;
-    return base;
-  }, [selectedMergedPair, guestsCount]);
+    /* На схеме и в сводке — «до» по сумме верхних мест, как у каждого стола */
+    return max;
+  }, [selectedMergedPair]);
 
   const mergedNeedsOverflow = useMemo(() => {
     if (!selectedMergedPair) return false;
     return guestsCount > (Number(selectedMergedPair.combinedCapacity) || 0);
   }, [selectedMergedPair, guestsCount]);
 
-  // Re-run algorithm when tables / guests change
+  const rawMergeFitOptions = useMemo(() => {
+    if (tables.length === 0) return [];
+    return listMergeOptionsThatFit(tables, guestsCount);
+  }, [tables, guestsCount]);
+
+  /** Варианты объединения: для небольших компаний не конкурируем с нормальным одиночным столом */
+  const mergeFitOptions = useMemo(() => {
+    if (rawMergeFitOptions.length === 0) return [];
+    const g = guestsCount;
+
+    if (g < MERGE_AS_ALT_FROM_GUESTS) {
+      const hasNominalSingle = tables.some(
+        (t) =>
+          t.isAvailable &&
+          !t.occupiedForSlot &&
+          t.slotKnown &&
+          t.capacity >= g &&
+          nominalPartyReasonable(g, t.capacity),
+      );
+      if (hasNominalSingle) return [];
+      return rawMergeFitOptions;
+    }
+
+    const hasObviousSingle = tables.some(
+      (t) =>
+        t.isAvailable &&
+        !t.occupiedForSlot &&
+        t.slotKnown &&
+        t.capacity >= g &&
+        nominalPartyReasonable(g, t.capacity) &&
+        t.capacity - g <= MAX_SPARE_SEATS_FOR_OBVIOUS_SINGLE,
+    );
+    if (hasObviousSingle) return [];
+    return rawMergeFitOptions;
+  }, [tables, guestsCount, rawMergeFitOptions]);
+
+  /** Показываем текст «большой стол или merge» (только режим «6+») */
+  const mergeChoiceWithLargeSingle = useMemo(() => {
+    if (guestsCount < MERGE_AS_ALT_FROM_GUESTS || mergeFitOptions.length === 0) return false;
+    const g = guestsCount;
+    return tables.some(
+      (t) =>
+        t.isAvailable &&
+        !t.occupiedForSlot &&
+        t.slotKnown &&
+        t.capacity >= g &&
+        nominalPartyReasonable(g, t.capacity) &&
+        t.capacity - g > MAX_SPARE_SEATS_FOR_OBVIOUS_SINGLE,
+    );
+  }, [tables, guestsCount, mergeFitOptions.length]);
+
+  const canPickSingleInsteadOfMerge = useMemo(() => {
+    if (!selectedTable || selectedMergedPair) return false;
+    const st = pickStatus(selectedTable, guestsCount);
+    return ['free', 'overflow', 'unknown'].includes(st);
+  }, [selectedTable, selectedMergedPair, guestsCount]);
+
+  const blockNextForMergePick =
+    mergeFitOptions.length >= 1 && !selectedMergedPair && !canPickSingleInsteadOfMerge;
+
   useEffect(() => {
     if (tables.length === 0) return;
     const best = findBestOption(tables, guestsCount);
     setSuggestion(best);
+
     if (best?.type === 'single' || best?.type === 'overflow') {
-      setSelectedTableId(best.table.id);
+      if (mergeFitOptions.length >= 1 && guestsCount >= MERGE_AS_ALT_FROM_GUESTS) {
+        setSelectedTableId(null);
+        setSelectedMergedPair(null);
+      } else {
+        setSelectedTableId(best.table.id);
+        setSelectedMergedPair(null);
+      }
+    } else if (mergeFitOptions.length === 1) {
+      setSelectedTableId(null);
+      setSelectedMergedPair(mergeFitOptions[0]);
+    } else if (mergeFitOptions.length > 1) {
+      setSelectedTableId(null);
       setSelectedMergedPair(null);
     } else {
-      // merged or null — clear single selection, show pair suggestion
       setSelectedTableId(null);
       setSelectedMergedPair(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tables, guestsCount]);
+  }, [tables, guestsCount, mergeFitOptions]);
 
   const step1Error = validateSlot(date, time, openTime, closeTime);
   const step1Valid = !step1Error && Boolean(date && time);
+  const bookingPreview = useMemo(() => formatBookingPreview(date, time), [date, time]);
+
+  const validateStep1 = useCallback(() => {
+    if (!date) {
+      showMessage(dateFieldRef.current, 'Выберите дату.');
+      return false;
+    }
+    if (!time) {
+      showMessage(timeFieldRef.current, 'Выберите время.');
+      return false;
+    }
+    if (step1Error) {
+      showMessage(timeFieldRef.current, step1Error);
+      return false;
+    }
+    return true;
+  }, [date, time, step1Error, showMessage]);
 
   const goToStep2 = useCallback(async () => {
-    if (!step1Valid) return;
+    if (!validateStep1()) return;
     setLoadingTables(true);
     setError('');
     try {
@@ -221,16 +406,45 @@ const BookingWizard = ({
     } finally {
       setLoadingTables(false);
     }
-  }, [step1Valid, dateTimeStr, restaurantId]);
+  }, [validateStep1, dateTimeStr, restaurantId]);
+
+  useEffect(() => {
+    if (step > 0) dismissMessage();
+  }, [step, dismissMessage]);
 
   const goToStep3 = () => {
     if (!selectedTableId && !selectedMergedPair) return;
+    if (mergeFitOptions.length >= 1 && !selectedMergedPair && !canPickSingleInsteadOfMerge) {
+      setError(
+        'Выберите: объединение соседних столов (кнопки или подсветка на схеме) или один большой стол на плане.',
+      );
+      return;
+    }
+    if (selectedTableId && !selectedMergedPair && selectedTable) {
+      const st = pickStatus(selectedTable, guestsCount);
+      if (st === 'oversized') {
+        setError('Выберите стол ближе по размеру к числу гостей.');
+        return;
+      }
+    }
     setStep(2);
     setError('');
   };
 
   const handleSubmit = async () => {
     setError('');
+    dismissMessage();
+    if (!date || !time) {
+      setError('Укажите дату и время бронирования');
+      return;
+    }
+    if (selectedTableId && !selectedMergedPair) {
+      const t = tables.find((x) => x.id === selectedTableId);
+      if (t && pickStatus(t, guestsCount) === 'oversized') {
+        setError('Выберите стол ближе по размеру к числу гостей.');
+        return;
+      }
+    }
     setLoading(true);
     try {
       const tableId = selectedMergedPair
@@ -254,6 +468,7 @@ const BookingWizard = ({
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Ошибка бронирования');
+    } finally {
       setLoading(false);
     }
   };
@@ -310,30 +525,42 @@ const BookingWizard = ({
         <div className={styles.stepContent}>
           <h3 className={styles.stepTitle}>Когда вас ждать?</h3>
 
-          <div className={styles.dateTimeRow}>
-            <div className={styles.field}>
+          <div className={styles.scheduleCard}>
+            <div className={styles.dateTimeRow}>
+              <div className={styles.field} ref={dateFieldRef}>
               <label className={styles.fieldLabel}>Дата</label>
               <DatePicker
                 value={date}
                 min={todayISO()}
+                max={maxBookingISO()}
                 onChange={(iso) => { setDate(iso); setError(''); }}
                 placeholder="Выберите дату"
+                quickPicks
+                showWeekday
               />
             </div>
-            <div className={styles.field}>
+            <div className={styles.field} ref={timeFieldRef}>
               <label className={styles.fieldLabel}>Время</label>
               <TimePicker
                 value={time}
+                selectedDate={date}
                 onChange={(t) => { setTime(t); setError(''); }}
                 openTime={openTime}
                 closeTime={closeTime}
                 placeholder="Выберите время"
-                popupAlign="end"
+                popupAlign="start"
               />
-              {openTime && closeTime && (
-                <span className={styles.timeHint}>Работает: {openTime} – {closeTime}</span>
-              )}
             </div>
+            </div>
+            {openTime && closeTime && (
+              <p className={styles.scheduleMeta}>Часы работы: {openTime} – {closeTime}</p>
+            )}
+            {bookingPreview && (
+              <div className={styles.schedulePreview} aria-live="polite">
+                <span className={styles.schedulePreviewLabel}>Ваш визит</span>
+                <span className={styles.schedulePreviewValue}>{bookingPreview.full}</span>
+              </div>
+            )}
           </div>
 
           <div className={styles.field}>
@@ -347,17 +574,12 @@ const BookingWizard = ({
               <span className={styles.counterHint}>{pluralGuests(guestsCount)}</span>
             </div>
           </div>
-
-          {/* Inline validation hint */}
-          {date && time && step1Error && (
-            <p className={styles.validationHint}>{step1Error}</p>
-          )}
           {error && <p className={styles.error}>{error}</p>}
 
           <button
             type="button"
             className={styles.btnPrimary}
-            disabled={!step1Valid || loadingTables}
+            disabled={loadingTables}
             onClick={goToStep2}
           >
             {loadingTables ? 'Загрузка столов…' : 'Посмотреть доступные столики →'}
@@ -374,32 +596,56 @@ const BookingWizard = ({
             {' · '}{guestsCount} {pluralGuests(guestsCount)}
           </p>
 
-          {/* Merge suggestion banner */}
-          {suggestion?.type === 'merged' && !selectedMergedPair && (
+          {(mergeFitOptions.length > 1 ||
+            (mergeFitOptions.length === 1 && !selectedMergedPair)) && (
             <div className={styles.mergeSuggestion}>
               <span className={styles.mergeSuggestionIcon}>⟺</span>
-              <span className={styles.mergeSuggestionText}>
-                Для {guestsCount} гостей рекомендуем объединить столы&nbsp;
-                {suggestion.pair.tableIds.map((id) => {
-                  const t = tables.find((x) => x.id === id);
-                  return t ? `№${t.number}` : `#${id}`;
-                }).join(' и ')}&nbsp;
-                — получится <strong>
-                  {guestsCount > suggestion.pair.combinedCapacity
-                    ? (suggestion.pair.combinedMax || suggestion.pair.combinedCapacity)
-                    : suggestion.pair.combinedCapacity} мест
-                </strong>
-                {guestsCount > suggestion.pair.combinedCapacity && (
-                  <> (с дополнительными местами)</>
-                )}
-              </span>
-              <button
-                type="button"
-                className={styles.mergeSuggestionBtn}
-                onClick={() => setSelectedMergedPair(suggestion.pair)}
-              >
-                Объединить
-              </button>
+              <div className={styles.mergeSuggestionBody}>
+                <p className={styles.mergeSuggestionLead}>
+                  {mergeChoiceWithLargeSingle
+                    ? 'Можно сесть за один просторный стол или сдвинуть соседние — выберите вариант. Листайте объединения вправо.'
+                    : mergeFitOptions.length > 1
+                      ? 'Одного столика на ваш состав нет — сдвиньте соседние. Листайте варианты вправо.'
+                      : 'Одного столика на ваш состав нет — выберите объединение ниже (подсвечено на схеме).'}
+                </p>
+                <div className={styles.mergeChipScroll} role="region" aria-label="Варианты объединения столов">
+                  <div className={styles.mergeChipScrollInner}>
+                  {mergeFitOptions.map((opt) => {
+                    const key = unique(opt.tableIds)
+                      .sort((a, b) => a - b)
+                      .join('-');
+                    const activeKey = selectedMergedPair
+                      ? unique(selectedMergedPair.tableIds)
+                          .sort((a, b) => a - b)
+                          .join('-')
+                      : '';
+                    const active = key === activeKey;
+                    const label = opt.tableIds.map((id) => {
+                      const t = tables.find((x) => x.id === id);
+                      return t ? `№${t.number}` : `#${id}`;
+                    }).join(' · ');
+                    const capMax = Number(opt.combinedMax) || Number(opt.combinedCapacity) || 0;
+                    const capNom = Number(opt.combinedCapacity) || 0;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`${styles.mergeChip} ${active ? styles.mergeChipActive : ''}`}
+                        onClick={() => {
+                          setSelectedMergedPair(opt);
+                          setSelectedTableId(null);
+                        }}
+                      >
+                        <span className={styles.mergeChipTitle}>{label}</span>
+                        <span className={styles.mergeChipMeta}>
+                          до {capMax} мест{capMax > capNom ? ' · с доп. стульями' : ''}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -428,12 +674,23 @@ const BookingWizard = ({
                 hallSchema={hallSchema}
                 staticMode
                 bookingStretch
-                suggestedPairIds={!selectedMergedPair && suggestion?.type === 'merged' ? suggestion.pair.tableIds : null}
+                suggestedPairIds={
+                  selectedMergedPair
+                    ? null
+                    : mergeFitOptions.length >= 1
+                      ? mergeFitOptions[0].tableIds
+                      : suggestion?.type === 'merged'
+                        ? suggestion.pair.tableIds
+                        : null
+                }
                 selectedMergedIds={selectedMergedPair ? selectedMergedPair.tableIds : null}
                 mergedCapacity={mergedDisplayCapacity}
                 onSelectMergedPair={
-                  suggestion?.type === 'merged' && !selectedMergedPair
-                    ? () => setSelectedMergedPair(suggestion.pair)
+                  !selectedMergedPair && mergeFitOptions.length >= 1
+                    ? () => {
+                        setSelectedMergedPair(mergeFitOptions[0]);
+                        setSelectedTableId(null);
+                      }
                     : null
                 }
               />
@@ -449,6 +706,7 @@ const BookingWizard = ({
               {mergedNeedsOverflow && (
                 <span className={styles.conflictBadge}>С доп. местами, будет чуть теснее</span>
               )}
+              {mergeFitOptions.length !== 1 && (
               <button
                 type="button"
                 className={styles.mergeCancelBtn}
@@ -456,6 +714,7 @@ const BookingWizard = ({
               >
                 Отменить объединение
               </button>
+              )}
             </div>
           ) : selectedTable ? (
             <div className={styles.selectionRow}>
@@ -464,6 +723,9 @@ const BookingWizard = ({
               </span>
               {pickStatus(selectedTable, guestsCount) === 'booked' && (
                 <span className={styles.conflictBadge}>На это время занят — выберите другой</span>
+              )}
+              {pickStatus(selectedTable, guestsCount) === 'oversized' && (
+                <span className={styles.conflictBadge}>Стол слишком большой для вашего состава</span>
               )}
             </div>
           ) : null}
@@ -475,7 +737,9 @@ const BookingWizard = ({
               className={styles.btnPrimary}
               disabled={
                 (!selectedTableId && !selectedMergedPair) ||
-                (selectedTable && pickStatus(selectedTable, guestsCount) === 'booked')
+                (selectedTable && pickStatus(selectedTable, guestsCount) === 'booked') ||
+                (selectedTable && !selectedMergedPair && pickStatus(selectedTable, guestsCount) === 'oversized') ||
+                blockNextForMergePick
               }
               onClick={goToStep3}
             >
@@ -543,11 +807,20 @@ const BookingWizard = ({
           {error && <p className={styles.error}>{error}</p>}
 
           <div className={styles.navRow}>
-            <button type="button" className={styles.btnBack} onClick={() => setStep(1)}>← Назад</button>
+            <button
+              type="button"
+              className={styles.btnBack}
+              onClick={() => {
+                setStep(1);
+                setError('');
+              }}
+            >
+              ← Назад
+            </button>
             <button
               type="button"
               className={styles.btnPrimary}
-              disabled={loading}
+              disabled={loading || Boolean(error)}
               onClick={handleSubmit}
             >
               {loading ? 'Отправка…' : 'Забронировать'}
@@ -555,6 +828,7 @@ const BookingWizard = ({
           </div>
         </div>
       )}
+      <ValidationTooltipPortal />
     </div>
   );
 };

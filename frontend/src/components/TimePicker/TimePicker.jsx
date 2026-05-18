@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingPopup } from '../../hooks/useFloatingPopup';
+import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 import styles from './TimePicker.module.css';
 
 const MINUTES = [0, 15, 30, 45];
+const POPULAR = ['18:00', '19:00', '19:30', '20:00', '20:30'];
+const POPUP_WIDTH = 300;
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -27,7 +32,6 @@ function toMins(t) {
   return h * 60 + (m || 0);
 }
 
-/** All quarter-hour strings from openTime to closeTime inclusive */
 function slotsInRange(openTime, closeTime) {
   const a = toMins(openTime);
   const b = toMins(closeTime);
@@ -41,40 +45,103 @@ function slotsInRange(openTime, closeTime) {
   return out.length ? out : null;
 }
 
-/**
- * TimePicker — same visual language as DatePicker (dark + gold).
- * value / onChange: "HH:MM" (24h)
- */
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function filterSlotsForDate(slots, selectedDate) {
+  if (!slots || !selectedDate || selectedDate !== todayISO()) return slots;
+  const now = new Date();
+  const cutoff = now.getHours() * 60 + now.getMinutes() + 14;
+  return slots.filter((slot) => toMins(slot) > cutoff);
+}
+
+function groupSlots(slots) {
+  const groups = [
+    { id: 'morning', label: 'Утро', from: 0, to: 11 * 60 + 59 },
+    { id: 'day', label: 'День', from: 12 * 60, to: 16 * 60 + 59 },
+    { id: 'evening', label: 'Вечер', from: 17 * 60, to: 24 * 60 },
+  ];
+  return groups
+    .map((g) => ({
+      ...g,
+      slots: slots.filter((s) => {
+        const m = toMins(s);
+        return m >= g.from && m <= g.to;
+      }),
+    }))
+    .filter((g) => g.slots.length > 0);
+}
+
+function pickDefaultPeriod(slotGroups, value) {
+  if (!slotGroups.length) return null;
+  if (value) {
+    const hit = slotGroups.find((g) => g.slots.includes(value));
+    if (hit) return hit.id;
+  }
+  return slotGroups.find((g) => g.id === 'evening')?.id ?? slotGroups[slotGroups.length - 1].id;
+}
+
+function ClockIcon() {
+  return (
+    <svg className={styles.triggerIconSvg} viewBox="0 0 20 20" width="17" height="17" aria-hidden>
+      <circle cx="10" cy="10" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M10 5.5v4.5l3 2" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function TimePicker({
   value,
   onChange,
   openTime,
   closeTime,
+  selectedDate,
   placeholder = 'Выберите время',
-  /** 'end' — прижать всплывающее окно к правому краю (вторая колонка сетки) */
   popupAlign = 'start',
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef(null);
+  const [periodId, setPeriodId] = useState(null);
+  const triggerRef = useRef(null);
+  const popupRef = useRef(null);
   const { h: selH, m: selM } = parseHHMM(value);
 
-  const rangeSlots = useMemo(
-    () => (openTime && closeTime ? slotsInRange(openTime, closeTime) : null),
-    [openTime, closeTime],
+  const rangeSlots = useMemo(() => {
+    const base = openTime && closeTime ? slotsInRange(openTime, closeTime) : null;
+    return filterSlotsForDate(base, selectedDate);
+  }, [openTime, closeTime, selectedDate]);
+
+  const slotGroups = useMemo(() => (rangeSlots ? groupSlots(rangeSlots) : []), [rangeSlots]);
+
+  const popularInRange = useMemo(() => {
+    if (!rangeSlots) return [];
+    const set = new Set(rangeSlots);
+    return POPULAR.filter((t) => set.has(t));
+  }, [rangeSlots]);
+
+  const activeGroup = useMemo(
+    () => slotGroups.find((g) => g.id === periodId) ?? slotGroups[0] ?? null,
+    [slotGroups, periodId],
   );
 
   useEffect(() => {
-    if (!open) return undefined;
-    const handler = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    if (!open) return;
+    setPeriodId(pickDefaultPeriod(slotGroups, value));
+  }, [open, slotGroups, value]);
 
-  const displayValue = value ? value : '';
+  const align = popupAlign === 'end' ? 'end' : 'start';
+  const { coords, placement, ready } = useFloatingPopup({
+    open,
+    triggerRef,
+    popupRef,
+    align,
+    popupWidth: POPUP_WIDTH,
+  });
 
-  const pickFromList = (slot) => {
+  usePopupDismiss(open, setOpen, triggerRef, popupRef);
+
+  const pickSlot = (slot) => {
     onChange(slot);
     setOpen(false);
   };
@@ -88,75 +155,154 @@ export default function TimePicker({
     setOpen(false);
   };
 
-  return (
-    <div className={styles.root} ref={rootRef}>
-      <button
-        type="button"
-        className={`${styles.trigger} ${open ? styles.triggerOpen : ''} ${!value ? styles.triggerPlaceholder : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="true"
-        aria-expanded={open}
-      >
-        <span className={styles.triggerIcon}>◷</span>
-        <span>{displayValue || placeholder}</span>
-        <span className={`${styles.triggerArrow} ${open ? styles.triggerArrowUp : ''}`}>›</span>
-      </button>
+  const hoursLabel = openTime && closeTime ? `${openTime} – ${closeTime}` : null;
 
-      {open && (
-        <div
-          className={`${styles.popup} ${popupAlign === 'end' ? styles.popupAlignEnd : ''}`}
-          role="dialog"
-          aria-label="Выбор времени"
-        >
-          <div className={styles.popupTitle}>Время</div>
+  const popupStyle = coords
+    ? {
+        top: coords.top,
+        left: coords.left,
+        width: coords.width,
+        visibility: 'visible',
+        opacity: 1,
+      }
+    : {
+        position: 'fixed',
+        top: -9999,
+        left: 0,
+        width: POPUP_WIDTH,
+        visibility: 'hidden',
+        opacity: 0,
+        pointerEvents: 'none',
+      };
 
-          {rangeSlots ? (
-            <div className={styles.slotList} role="listbox">
-              {rangeSlots.map((slot) => (
+  const popup = open ? (
+    <div
+      ref={popupRef}
+      className={`${styles.popup} ${placement === 'above' ? styles.popupAbove : ''} ${ready ? styles.popupReady : ''}`}
+      style={popupStyle}
+      role="dialog"
+      aria-label="Выбор времени"
+    >
+      <div className={styles.popupHead}>
+        <div>
+          <span className={styles.popupTitle}>Время визита</span>
+          {hoursLabel && <span className={styles.popupSub}>{hoursLabel}</span>}
+        </div>
+        {value && <span className={styles.popupCurrent}>{value}</span>}
+      </div>
+
+      {popularInRange.length > 0 && (
+        <div className={styles.popularBlock}>
+          <span className={styles.popularLabel}>Популярное</span>
+          <div className={styles.popularRow}>
+            {popularInRange.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                className={`${styles.popularBtn} ${slot === value ? styles.slotSelected : ''}`}
+                onClick={() => pickSlot(slot)}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rangeSlots && rangeSlots.length > 0 ? (
+        <>
+          {slotGroups.length > 1 && (
+            <div className={styles.periodTabs} role="tablist" aria-label="Период дня">
+              {slotGroups.map((group) => (
                 <button
-                  key={slot}
+                  key={group.id}
                   type="button"
-                  role="option"
-                  aria-selected={slot === value}
-                  className={`${styles.slotBtn} ${slot === value ? styles.slotBtnSelected : ''}`}
-                  onClick={() => pickFromList(slot)}
+                  role="tab"
+                  aria-selected={group.id === periodId}
+                  className={`${styles.periodTab} ${group.id === periodId ? styles.periodTabActive : ''}`}
+                  onClick={() => setPeriodId(group.id)}
                 >
-                  {slot}
+                  {group.label}
                 </button>
               ))}
             </div>
-          ) : (
-            <>
-              <div className={styles.subLabel}>Часы</div>
-              <div className={styles.hourGrid}>
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <button
-                    key={hour}
-                    type="button"
-                    className={`${styles.hourBtn} ${hour === selH ? styles.cellSelected : ''}`}
-                    onClick={() => pickHour(hour)}
-                  >
-                    {pad2(hour)}
-                  </button>
-                ))}
-              </div>
-              <div className={styles.subLabel}>Минуты</div>
-              <div className={styles.minRow}>
-                {MINUTES.map((minute) => (
-                  <button
-                    key={minute}
-                    type="button"
-                    className={`${styles.minBtn} ${minute === selM ? styles.cellSelected : ''}`}
-                    onClick={() => pickMinute(minute)}
-                  >
-                    {pad2(minute)}
-                  </button>
-                ))}
-              </div>
-            </>
           )}
-        </div>
+          {activeGroup && (
+            <div className={styles.slotScroll}>
+              <div className={styles.slotGrid} role="listbox" aria-label={activeGroup.label}>
+                {activeGroup.slots.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    role="option"
+                    aria-selected={slot === value}
+                    className={`${styles.slotBtn} ${slot === value ? styles.slotSelected : ''}`}
+                    onClick={() => pickSlot(slot)}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : rangeSlots && rangeSlots.length === 0 ? (
+        <p className={styles.emptyHint}>На сегодня свободных слотов уже нет — выберите другую дату.</p>
+      ) : (
+        <>
+          <div className={styles.subLabel}>Часы</div>
+          <div className={styles.hourGrid}>
+            {Array.from({ length: 24 }, (_, hour) => (
+              <button
+                key={hour}
+                type="button"
+                className={`${styles.hourBtn} ${hour === selH ? styles.cellSelected : ''}`}
+                onClick={() => pickHour(hour)}
+              >
+                {pad2(hour)}
+              </button>
+            ))}
+          </div>
+          <div className={styles.subLabel}>Минуты</div>
+          <div className={styles.minRow}>
+            {MINUTES.map((minute) => (
+              <button
+                key={minute}
+                type="button"
+                className={`${styles.minBtn} ${minute === selM ? styles.cellSelected : ''}`}
+                onClick={() => pickMinute(minute)}
+              >
+                {pad2(minute)}
+              </button>
+            ))}
+          </div>
+        </>
       )}
+    </div>
+  ) : null;
+
+  return (
+    <div className={styles.root}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={[
+          styles.trigger,
+          open ? styles.triggerOpen : '',
+          !value ? styles.triggerPlaceholder : '',
+        ].filter(Boolean).join(' ')}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className={styles.triggerIcon}>
+          <ClockIcon />
+        </span>
+        <span className={styles.triggerText}>{value || placeholder}</span>
+        <span className={`${styles.triggerArrow} ${open ? styles.triggerArrowUp : ''}`} aria-hidden>›</span>
+      </button>
+
+      {popup && createPortal(popup, document.body)}
     </div>
   );
 }

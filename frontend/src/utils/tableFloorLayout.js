@@ -22,7 +22,7 @@ export function computeTableLayouts(tables) {
   return sorted.map((table, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const cap = Math.max(1, Math.min(Number(table.capacity) || 2, 50));
+    const cap = Math.max(1, Math.min(Number(table.capacity) || 2, 10));
 
     /*
      * Реалистичная модель: глубина стола (h, «в ширину зала») как у 4 мест — под локти и посуду.
@@ -35,7 +35,7 @@ export function computeTableLayouts(tables) {
     const h = h4;
 
     // Длина растёт заметно с каждым местом после 4; квадратичный член даёт «длинный банкет» на 16–20+.
-    const extras = Math.max(0, Math.min(cap, 40) - 4);
+    const extras = Math.max(0, Math.min(cap, 10) - 4);
     const extraW = extras * (8.2 + 0.52 * extras);
     const w = Math.min(cellW - 8, w4 + extraW);
 

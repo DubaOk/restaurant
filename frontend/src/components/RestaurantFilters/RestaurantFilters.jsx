@@ -1,13 +1,39 @@
+import CustomSelect from '../CustomSelect/CustomSelect';
 import styles from './RestaurantFilters.module.css';
 
-const CUISINES = [
-  '', 'Белорусская', 'Европейская', 'Итальянская', 'Японская',
-  'Китайская', 'Грузинская', 'Американская', 'Французская',
+const CUISINE_OPTIONS = [
+  { value: '', label: 'Все кухни' },
+  { value: 'Белорусская', label: 'Белорусская' },
+  { value: 'Европейская', label: 'Европейская' },
+  { value: 'Итальянская', label: 'Итальянская' },
+  { value: 'Японская', label: 'Японская' },
+  { value: 'Китайская', label: 'Китайская' },
+  { value: 'Грузинская', label: 'Грузинская' },
+  { value: 'Американская', label: 'Американская' },
+  { value: 'Французская', label: 'Французская' },
+];
+
+const RATING_OPTIONS = [
+  { value: '', label: 'Любой рейтинг' },
+  { value: '3', label: 'От 3★' },
+  { value: '4', label: 'От 4★' },
+  { value: '4.5', label: 'От 4.5★' },
+];
+
+const SORT_BY_OPTIONS = [
+  { value: 'name', label: 'По названию' },
+  { value: 'avgRating', label: 'По рейтингу' },
+  { value: 'createdAt', label: 'По дате добавления' },
+];
+
+const SORT_ORDER_OPTIONS = [
+  { value: 'asc', label: 'По возрастанию' },
+  { value: 'desc', label: 'По убыванию' },
 ];
 
 const RestaurantFilters = ({ filters, onChange }) => {
-  const handleChange = (e) => {
-    onChange((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const setField = (name, value) => {
+    onChange((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -16,34 +42,41 @@ const RestaurantFilters = ({ filters, onChange }) => {
         className={styles.search}
         name="search"
         value={filters.search}
-        onChange={handleChange}
+        onChange={(e) => setField('search', e.target.value)}
         placeholder="Поиск по названию или адресу..."
       />
 
-      <select name="cuisine" value={filters.cuisine} onChange={handleChange}>
-        <option value="">Все кухни</option>
-        {CUISINES.filter(Boolean).map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
+      <CustomSelect
+        value={filters.cuisine}
+        onChange={(v) => setField('cuisine', v)}
+        options={CUISINE_OPTIONS}
+        placeholder="Все кухни"
+        aria-label="Тип кухни"
+      />
 
-      <select name="minRating" value={filters.minRating} onChange={handleChange}>
-        <option value="">Любой рейтинг</option>
-        <option value="3">От 3★</option>
-        <option value="4">От 4★</option>
-        <option value="4.5">От 4.5★</option>
-      </select>
+      <CustomSelect
+        value={filters.minRating}
+        onChange={(v) => setField('minRating', v)}
+        options={RATING_OPTIONS}
+        placeholder="Любой рейтинг"
+        aria-label="Минимальный рейтинг"
+      />
 
-      <select name="sortBy" value={filters.sortBy} onChange={handleChange}>
-        <option value="name">По названию</option>
-        <option value="avgRating">По рейтингу</option>
-        <option value="createdAt">По дате добавления</option>
-      </select>
+      <CustomSelect
+        value={filters.sortBy}
+        onChange={(v) => setField('sortBy', v)}
+        options={SORT_BY_OPTIONS}
+        placeholder="Сортировка"
+        aria-label="Сортировка"
+      />
 
-      <select name="sortOrder" value={filters.sortOrder} onChange={handleChange}>
-        <option value="asc">По возрастанию</option>
-        <option value="desc">По убыванию</option>
-      </select>
+      <CustomSelect
+        value={filters.sortOrder}
+        onChange={(v) => setField('sortOrder', v)}
+        options={SORT_ORDER_OPTIONS}
+        placeholder="Направление"
+        aria-label="Направление сортировки"
+      />
     </div>
   );
 };

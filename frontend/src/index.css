@@ -100,6 +100,20 @@ button { cursor: pointer; font-family: inherit; }
 img    { max-width: 100%; display: block; }
 input, textarea, select { font-family: inherit; font-size: 1rem; }
 
+input[data-validation-invalid],
+select[data-validation-invalid],
+textarea[data-validation-invalid] {
+  border-color: rgba(248, 113, 113, 0.72) !important;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.14) !important;
+}
+
+/* Красное волнистое подчёркивание орфографии браузера — только в полях ввода */
+:not(input):not(textarea):not([contenteditable="true"])::spelling-error,
+:not(input):not(textarea):not([contenteditable="true"])::grammar-error {
+  text-decoration: none !important;
+  background: transparent !important;
+}
+
 /* ─── Shared UI helpers ───────────────────────────────────────── */
 
 .leaflet-container {

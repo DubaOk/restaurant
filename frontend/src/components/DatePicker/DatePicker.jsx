@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingPopup } from '../../hooks/useFloatingPopup';
+import { usePopupDismiss } from '../../hooks/usePopupDismiss';
 import styles from './DatePicker.module.css';
 
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const WEEKDAYS = [
+  { label: 'Пн', weekend: false },
+  { label: 'Вт', weekend: false },
+  { label: 'Ср', weekend: false },
+  { label: 'Чт', weekend: false },
+  { label: 'Пт', weekend: false },
+  { label: 'Сб', weekend: true },
+  { label: 'Вс', weekend: true },
+];
+
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
 
-/* Convert "YYYY-MM-DD" ↔ Date (local noon to avoid tz shifts) */
 function isoToDate(iso) {
   if (!iso) return null;
   const [y, m, d] = iso.split('-').map(Number);
@@ -28,45 +39,83 @@ function sameDay(a, b) {
 
 function buildCalendar(year, month) {
   const firstDay = new Date(year, month, 1);
-  // Monday-based: 0=Mon … 6=Sun
-  let startDow = (firstDay.getDay() + 6) % 7;
+  const startDow = (firstDay.getDay() + 6) % 7;
   const days = [];
-  // Leading empty slots
   for (let i = 0; i < startDow; i++) days.push(null);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (let d = 1; d <= daysInMonth; d++) days.push(new Date(year, month, d, 12));
   return days;
 }
 
-/**
- * DatePicker
- * Props:
- *   value    — "YYYY-MM-DD" | ""
- *   min      — "YYYY-MM-DD" (dates before are disabled)
- *   onChange — (iso: string) => void
- *   placeholder — string
- */
-export default function DatePicker({ value, min, onChange, placeholder = 'Выберите дату' }) {
+function formatTriggerDate(date, withWeekday = false) {
+  if (withWeekday) {
+    const wd = date.toLocaleDateString('ru-RU', { weekday: 'short' });
+    const rest = date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+    });
+    return `${wd}, ${rest}`;
+  }
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function addDaysISO(baseDate, days) {
+  const d = new Date(baseDate);
+  d.setDate(d.getDate() + days);
+  return dateToIso(d);
+}
+
+function CalendarIcon() {
+  return (
+    <svg className={styles.triggerIconSvg} viewBox="0 0 20 20" width="17" height="17" aria-hidden>
+      <rect x="2.5" y="4" width="15" height="13.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M2.5 8.5h15" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M6.5 2.5v3M13.5 2.5v3" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function DatePicker({
+  value,
+  min,
+  max,
+  onChange,
+  placeholder = 'Выберите дату',
+  popupAlign = 'start',
+  quickPicks = false,
+  showWeekday = false,
+}) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const popupRef = useRef(null);
+
   const today = new Date();
   today.setHours(12, 0, 0, 0);
 
   const selected = isoToDate(value);
-  const minDate  = isoToDate(min) ?? today;
+  const minDate = min ? isoToDate(min) : null;
+  const maxDate = max ? isoToDate(max) : null;
 
-  const initialMonth = selected
-    ? selected.getMonth()
-    : today.getMonth();
-  const initialYear = selected
-    ? selected.getFullYear()
-    : today.getFullYear();
+  const initialMonth = selected ? selected.getMonth() : today.getMonth();
+  const initialYear = selected ? selected.getFullYear() : today.getFullYear();
 
-  const [viewYear,  setViewYear]  = useState(initialYear);
+  const [viewYear, setViewYear] = useState(initialYear);
   const [viewMonth, setViewMonth] = useState(initialMonth);
 
-  const rootRef = useRef(null);
+  const { coords, placement } = useFloatingPopup({
+    open,
+    triggerRef,
+    popupRef,
+    align: popupAlign,
+    popupWidth: 252,
+  });
 
-  // Keep view in sync with external value changes
+  usePopupDismiss(open, setOpen, triggerRef, popupRef);
+
   useEffect(() => {
     if (selected) {
       setViewYear(selected.getFullYear());
@@ -74,16 +123,6 @@ export default function DatePicker({ value, min, onChange, placeholder = 'Выб
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return undefined;
-    const handler = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
@@ -94,78 +133,159 @@ export default function DatePicker({ value, min, onChange, placeholder = 'Выб
     else setViewMonth((m) => m + 1);
   };
 
+  const isDisabledDay = (day) => {
+    if (minDate && day < minDate && !sameDay(day, minDate)) return true;
+    if (maxDate && day > maxDate && !sameDay(day, maxDate)) return true;
+    return false;
+  };
+
   const handleDayClick = (day) => {
-    if (!day) return;
-    if (day < minDate && !sameDay(day, minDate)) return;
+    if (!day || isDisabledDay(day)) return;
     onChange(dateToIso(day));
     setOpen(false);
   };
 
-  const displayValue = selected
-    ? selected.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '';
+  const pickOffset = (offsetDays) => {
+    const target = isoToDate(addDaysISO(today, offsetDays));
+    if (!target || isDisabledDay(target)) return;
+    onChange(dateToIso(target));
+    setViewYear(target.getFullYear());
+    setViewMonth(target.getMonth());
+    setOpen(false);
+  };
 
+  const pickToday = () => {
+    if (isDisabledDay(today)) return;
+    onChange(dateToIso(today));
+    setViewYear(today.getFullYear());
+    setViewMonth(today.getMonth());
+    setOpen(false);
+  };
+
+  const todayDisabled = isDisabledDay(today);
+  const displayValue = selected ? formatTriggerDate(selected, showWeekday) : '';
+
+  const quickPickItems = quickPicks
+    ? [
+        { label: 'Сегодня', offset: 0 },
+        { label: 'Завтра', offset: 1 },
+        { label: 'Послезавтра', offset: 2 },
+      ]
+    : [];
   const calendar = buildCalendar(viewYear, viewMonth);
 
-  return (
-    <div className={styles.root} ref={rootRef}>
-      <button
-        type="button"
-        className={`${styles.trigger} ${open ? styles.triggerOpen : ''} ${!value ? styles.triggerPlaceholder : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="true"
-        aria-expanded={open}
-      >
-        <span className={styles.triggerIcon}>📅</span>
-        <span>{displayValue || placeholder}</span>
-        <span className={`${styles.triggerArrow} ${open ? styles.triggerArrowUp : ''}`}>›</span>
-      </button>
+  const popup = open ? (
+    <div
+      ref={popupRef}
+      className={`${styles.popup} ${placement === 'above' ? styles.popupAbove : ''}`}
+      style={coords ?? { visibility: 'hidden' }}
+      role="dialog"
+      aria-label="Выбор даты"
+    >
+      <div className={styles.header}>
+        <button type="button" className={styles.navBtn} onClick={prevMonth} aria-label="Предыдущий месяц">‹</button>
+        <div className={styles.monthLabel}>
+          {MONTHS[viewMonth]}
+          <span className={styles.monthLabelYear}>{viewYear}</span>
+        </div>
+        <button type="button" className={styles.navBtn} onClick={nextMonth} aria-label="Следующий месяц">›</button>
+      </div>
 
-      {open && (
-        <div className={styles.popup} role="dialog" aria-label="Выбор даты">
-          {/* Month navigation */}
-          <div className={styles.header}>
-            <button type="button" className={styles.navBtn} onClick={prevMonth} aria-label="Предыдущий месяц">‹</button>
-            <span className={styles.monthLabel}>
-              {MONTHS[viewMonth]} {viewYear}
-            </span>
-            <button type="button" className={styles.navBtn} onClick={nextMonth} aria-label="Следующий месяц">›</button>
+      <div className={styles.grid}>
+        {WEEKDAYS.map(({ label, weekend }) => (
+          <div
+            key={label}
+            className={`${styles.weekday} ${weekend ? styles.weekdayWeekend : ''}`}
+          >
+            {label}
           </div>
+        ))}
 
-          {/* Weekday headers */}
-          <div className={styles.grid}>
-            {WEEKDAYS.map((w) => (
-              <div key={w} className={styles.weekday}>{w}</div>
-            ))}
+        {calendar.map((day, idx) => {
+          if (!day) return <div key={`e-${idx}`} className={styles.dayEmpty} aria-hidden />;
 
-            {/* Day cells */}
-            {calendar.map((day, idx) => {
-              if (!day) return <div key={`e-${idx}`} />;
-              const isToday    = sameDay(day, today);
-              const isSelected = sameDay(day, selected);
-              const disabled   = day < minDate && !sameDay(day, minDate);
+          const isToday = sameDay(day, today);
+          const isSelected = sameDay(day, selected);
+          const disabled = isDisabledDay(day);
+          const dow = (day.getDay() + 6) % 7;
+          const isWeekend = dow >= 5;
 
+          return (
+            <button
+              key={day.toISOString()}
+              type="button"
+              className={[
+                styles.day,
+                isToday ? styles.dayToday : '',
+                isSelected ? styles.daySelected : '',
+                disabled ? styles.dayDisabled : '',
+                isWeekend && !isSelected ? styles.dayWeekend : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => handleDayClick(day)}
+              disabled={disabled}
+              aria-label={day.toLocaleDateString('ru-RU')}
+              aria-pressed={isSelected}
+            >
+              {day.getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={styles.footer}>
+        {quickPickItems.length > 0 && (
+          <div className={styles.quickRow}>
+            {quickPickItems.map(({ label, offset }) => {
+              const target = isoToDate(addDaysISO(today, offset));
+              const off = !target || isDisabledDay(target);
+              const active = target && selected && sameDay(target, selected);
               return (
                 <button
-                  key={day.toISOString()}
+                  key={label}
                   type="button"
-                  className={`${styles.day}
-                    ${isToday    ? styles.dayToday    : ''}
-                    ${isSelected ? styles.daySelected : ''}
-                    ${disabled   ? styles.dayDisabled : ''}
-                  `}
-                  onClick={() => handleDayClick(day)}
-                  disabled={disabled}
-                  aria-label={day.toLocaleDateString('ru-RU')}
-                  aria-pressed={isSelected}
+                  className={`${styles.quickBtn} ${active ? styles.quickBtnActive : ''}`}
+                  disabled={off}
+                  onClick={() => pickOffset(offset)}
                 >
-                  {day.getDate()}
+                  {label}
                 </button>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          className={styles.todayBtn}
+          onClick={pickToday}
+          disabled={todayDisabled}
+        >
+          Сегодня
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <div className={styles.root} ref={triggerRef}>
+      <button
+        type="button"
+        className={[
+          styles.trigger,
+          open ? styles.triggerOpen : '',
+          !value ? styles.triggerPlaceholder : '',
+        ].filter(Boolean).join(' ')}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className={styles.triggerIcon}>
+          <CalendarIcon />
+        </span>
+        <span className={styles.triggerText}>{displayValue || placeholder}</span>
+        <span className={`${styles.triggerArrow} ${open ? styles.triggerArrowUp : ''}`} aria-hidden>›</span>
+      </button>
+
+      {popup && createPortal(popup, document.body)}
     </div>
   );
 }

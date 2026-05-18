@@ -47,6 +47,10 @@
   text-transform: uppercase;
 }
 
+.card > .error {
+  margin-bottom: 1rem;
+}
+
 .form { display: flex; flex-direction: column; gap: 1rem; }
 
 .field { display: flex; flex-direction: column; gap: .375rem; }

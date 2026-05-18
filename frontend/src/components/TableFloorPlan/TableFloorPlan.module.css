@@ -94,9 +94,14 @@
   backdrop-filter: blur(10px);
 }
 
-.zoomBtn:hover {
+.zoomBtn:hover:not(:disabled) {
   border-color: rgba(242, 208, 154, 0.35);
   color: #f2d09a;
+}
+
+.zoomBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .viewport {
@@ -188,6 +193,13 @@
   fill: rgba(18, 22, 30, 0.2);
   stroke: rgba(200, 180, 100, 0.25);
   stroke-width: 1;
+}
+
+.shapeOversized {
+  fill: rgba(18, 22, 30, 0.22);
+  stroke: rgba(160, 140, 210, 0.45);
+  stroke-width: 1.15;
+  stroke-dasharray: 4 6;
 }
 
 .shapeBooked {
@@ -300,6 +312,15 @@
   flex-shrink: 0;
   border: 1px solid rgba(220, 168, 60, 0.75);
   background: rgba(220, 168, 60, 0.12);
+}
+
+.dotOversized {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px dashed rgba(160, 140, 210, 0.85);
+  background: rgba(120, 90, 180, 0.12);
 }
 
 .dotMerge {

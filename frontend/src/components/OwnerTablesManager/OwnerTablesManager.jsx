@@ -9,6 +9,7 @@ import {
   tableLayoutOverlapsAnyOtherTable,
 } from '../../utils/hallBoundary';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
 import HallEditor, { OBJECT_PRESETS } from '../HallEditor/HallEditor';
 import styles from './OwnerTablesManager.module.css';
 
@@ -344,7 +345,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
           JSON.stringify({ templateId: schemeId }),
         );
       }
-      setFloorSaveNotice('Схема зала сохранена на сервере');
+      setFloorSaveNotice('Схема зала сохранена');
       setTimeout(() => setFloorSaveNotice(''), 4000);
     } catch (err) {
       setError(err.response?.data?.message || 'Не удалось сохранить схему');
@@ -528,15 +529,13 @@ const OwnerTablesManager = ({ restaurantId }) => {
     setSavingAdjacency(true);
     setError('');
     try {
-      const adjIds = adjacencyMap[selectedId] || [];
+      const adjIds = [...(adjacencyMap[selectedId] || [])];
       await tablesApi.updateAdjacency(selectedId, adjIds);
-      // Reflect on the other side too (bidirectional)
-      const toAdd = adjIds;
-      const updated = { ...adjacencyMap };
+      const updated = { ...adjacencyMap, [selectedId]: adjIds };
       tables.forEach((t) => {
         if (t.id === selectedId) return;
         const existing = [...(updated[t.id] || [])];
-        if (toAdd.includes(t.id)) {
+        if (adjIds.includes(t.id)) {
           if (!existing.includes(selectedId)) existing.push(selectedId);
         } else {
           const idx = existing.indexOf(selectedId);
@@ -545,7 +544,12 @@ const OwnerTablesManager = ({ restaurantId }) => {
         updated[t.id] = existing;
       });
       setAdjacencyMap(updated);
-      // Persist other side to backend silently
+      setTables((prev) =>
+        prev.map((t) => ({
+          ...t,
+          adjacentTableIds: [...(updated[t.id] || [])],
+        })),
+      );
       tables.forEach((t) => {
         if (t.id === selectedId) return;
         tablesApi.updateAdjacency(t.id, updated[t.id] || []).catch(() => {});
@@ -580,10 +584,15 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
   const isAdjacencyDirty = () => {
     if (!selectedId) return false;
-    const current = adjacencyMap[selectedId] || [];
-    const original = Array.isArray(selectedTable?.adjacentTableIds) ? selectedTable.adjacentTableIds : [];
+    const norm = (arr) =>
+      [...(Array.isArray(arr) ? arr : [])]
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    const current = norm(adjacencyMap[selectedId]);
+    const original = norm(selectedTable?.adjacentTableIds);
     if (current.length !== original.length) return true;
-    return !current.every((id) => original.includes(id));
+    return current.some((id, i) => id !== original[i]);
   };
 
   // ─── Create ───────────────────────────────────────────────────
@@ -706,15 +715,12 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
             {/* SVG canvas — always visible (HallEditor opens as modal) */}
             <p className={styles.editorHint}>
-              Перетащите столы: без красной подсветки позиция сохранится. Не ставьте столы друг на друга и на объекты плана. От вместимости стол на схеме удлиняется вдоль (глубина как у 4 мест).
+              {tables.length === 0
+                ? 'Шаблон и контур зала видны сразу. Добавьте столы справа — затем их можно перетаскивать на схеме.'
+                : 'Перетащите столы: без красной подсветки позиция сохранится. Не ставьте столы друг на друга и на объекты плана. От вместимости стол на схеме удлиняется вдоль (глубина как у 4 мест).'}
             </p>
 
-            {tables.length === 0 ? (
-              <div className={styles.emptyCanvas}>
-                Столов пока нет — добавьте первый в панели справа
-              </div>
-            ) : (
-              <svg
+            <svg
                 ref={svgRef}
                 className={styles.editorSvg}
                 viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -792,6 +798,12 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   </>
                 )}
 
+                {tables.length === 0 && (
+                  <text x={500} y={280} textAnchor="middle" className={styles.editorEmptyHallHint}>
+                    Столов пока нет — добавьте первый справа
+                  </text>
+                )}
+
                 {/* Adjacency lines */}
                 {layouts.map((l1) => {
                   const adjIds = adjacencyMap[l1.table.id] || [];
@@ -847,7 +859,6 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   );
                 })}
               </svg>
-            )}
 
             {/* ── Hall Editor modal ────────────────────────────────── */}
             {editingHall && (
@@ -920,7 +931,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     className={styles.panelInput}
                     type="number"
                     min={1}
-                    max={50}
+                    max={10}
                     value={selectedRow.capacity}
                     onChange={(e) => handleRowChange(selectedId, { capacity: e.target.value })}
                   />
@@ -931,7 +942,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     className={styles.panelInput}
                     type="number"
                     min={selectedRow.capacity || 1}
-                    max={50}
+                    max={10}
                     value={selectedRow.maxCapacity}
                     placeholder={`${selectedRow.capacity} (без буфера)`}
                     onChange={(e) => handleRowChange(selectedId, { maxCapacity: e.target.value })}
@@ -1023,7 +1034,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
 
             <div className={styles.panelDivider} />
 
-            <form className={styles.addCard} onSubmit={handleCreate}>
+            <ValidatedForm className={styles.addCard} onSubmit={handleCreate}>
               <h4 className={styles.addTitle}>+ Добавить стол</h4>
               <div className={styles.addGrid}>
                 <div className={styles.panelField}>
@@ -1043,7 +1054,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                     className={styles.panelInput}
                     type="number"
                     min={1}
-                    max={50}
+                    max={10}
                     required
                     value={newTable.capacity}
                     onChange={(e) => setNewTable((p) => ({ ...p, capacity: e.target.value }))}
@@ -1065,7 +1076,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
               >
                 {creating ? 'Добавление…' : 'Добавить'}
               </button>
-            </form>
+            </ValidatedForm>
           </div>
         </div>
       )}
@@ -1108,7 +1119,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                             className={styles.capInput}
                             type="number"
                             min={1}
-                            max={50}
+                            max={10}
                             value={r.capacity}
                             onChange={(e) => handleRowChange(t.id, { capacity: e.target.value })}
                             onFocus={() => setSelectedId(t.id)}
@@ -1152,7 +1163,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
             </div>
           )}
 
-          <form className={styles.addCard} onSubmit={handleCreate}>
+          <ValidatedForm className={styles.addCard} onSubmit={handleCreate}>
             <h3 className={styles.addTitle}>Добавить стол</h3>
             <div className={styles.addGrid}>
               <div className={styles.field}>
@@ -1174,7 +1185,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                   className={styles.capInput}
                   type="number"
                   min={1}
-                  max={50}
+                  max={10}
                   required
                   value={newTable.capacity}
                   onChange={(e) => setNewTable((p) => ({ ...p, capacity: e.target.value }))}
@@ -1196,7 +1207,7 @@ const OwnerTablesManager = ({ restaurantId }) => {
                 {creating ? 'Добавление…' : '+ Добавить'}
               </button>
             </div>
-          </form>
+          </ValidatedForm>
         </>
       )}
 

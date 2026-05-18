@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { restaurantsApi } from '../../api/restaurants.api';
+import CustomSelect from '../../components/CustomSelect/CustomSelect';
 import Navbar from '../../components/Navbar/Navbar';
 import OwnerRestaurantForm from '../../components/OwnerRestaurantForm/OwnerRestaurantForm';
 import OwnerTablesManager from '../../components/OwnerTablesManager/OwnerTablesManager';
@@ -35,6 +36,21 @@ const OwnerPage = () => {
 
   const selectedRestaurant = restaurants.find((r) => r.id === selectedRestaurantId) || null;
   const hasRestaurants = restaurants.length > 0;
+
+  const establishmentOptions = useMemo(
+    () => [
+      {
+        value: '',
+        label: hasRestaurants ? 'Выберите заведение для работы' : 'Сначала добавьте заведение в гид',
+        disabled: !hasRestaurants,
+      },
+      ...restaurants.map((r) => ({
+        value: String(r.id),
+        label: r.name,
+      })),
+    ],
+    [restaurants, hasRestaurants],
+  );
 
   const handleSavedRestaurant = (saved) => {
     setRestaurants((prev) => {
@@ -89,26 +105,19 @@ const OwnerPage = () => {
               <label className={styles.workspaceLabel} htmlFor="restaurateur-establishment-select">
                 Активное заведение
               </label>
-              <select
+              <CustomSelect
                 id="restaurateur-establishment-select"
-                className={styles.workspaceSelect}
-                value={selectedRestaurantId ?? ''}
-                onChange={(e) => {
-                  const nextId = e.target.value ? Number(e.target.value) : null;
-                  setSelectedRestaurantId(nextId);
+                className={styles.workspaceSelectWrap}
+                value={selectedRestaurantId != null ? String(selectedRestaurantId) : ''}
+                onChange={(v) => {
+                  setSelectedRestaurantId(v ? Number(v) : null);
                   setIsCreating(false);
                 }}
+                options={establishmentOptions}
+                placeholder="Выберите заведение"
                 disabled={!hasRestaurants}
-              >
-                <option value="">
-                  {hasRestaurants ? 'Выберите заведение для работы' : 'Сначала добавьте заведение в гид'}
-                </option>
-                {restaurants.map((restaurant) => (
-                  <option key={restaurant.id} value={restaurant.id}>
-                    {restaurant.name}
-                  </option>
-                ))}
-              </select>
+                aria-label="Активное заведение"
+              />
             </div>
 
             <div className={styles.content}>

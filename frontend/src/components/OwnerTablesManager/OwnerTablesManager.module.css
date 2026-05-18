@@ -242,6 +242,12 @@
   font-size: 0.9rem;
 }
 
+.editorEmptyHallHint {
+  fill: #9aa3b2;
+  font-size: 15px;
+  pointer-events: none;
+}
+
 .editorSvg {
   width: 100%;
   border-radius: 14px;

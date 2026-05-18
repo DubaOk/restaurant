@@ -114,9 +114,14 @@ const LABELS = {
   booked: 'Занят на это время',
   disabled: 'Недоступен',
   small: 'Мало мест под состав гостей',
+  oversized: 'Слишком большой стол для вашего состава',
   overflow: 'Свободен · понадобится дополнительное место',
   unknown: 'Занятость проверится после выбора даты и времени',
 };
+
+/** Допустимый запас пустых номинальных мест (синхронно с бэкендом бронирования) */
+const nominalPartySlack = (guests) =>
+  guests >= 4 ? Math.max(4, Math.ceil(guests * 0.85)) : Math.max(2, Math.ceil(guests / 2));
 
 export function pickStatus(table, guestsCount) {
   if (!table.isAvailable) return 'disabled';
@@ -126,12 +131,14 @@ export function pickStatus(table, guestsCount) {
   if (guests > maxCap) return 'small';
   if (!table.slotKnown) return 'unknown';
   if (table.occupiedForSlot) return 'booked';
+  if (guests <= cap && cap - guests > nominalPartySlack(guests)) return 'oversized';
   if (guests > cap) return 'overflow';
   return 'free';
 }
 
-export function canPreselectBookingTable(table, guestsCount) {
+export function canPreselectBookingTable(table, guestsCount, { strict = false } = {}) {
   const st = pickStatus(table, guestsCount);
+  if (strict) return st === 'free' || st === 'overflow';
   return st === 'free' || st === 'unknown' || st === 'overflow';
 }
 
@@ -160,6 +167,8 @@ function TableFloorPlan({
   bookingStretch = false,
   /** Disable zoom/pan (for booking step) */
   staticMode = false,
+  /** Minimum scale (1 = no zoom-out below default fit) */
+  minZoomK = 0.52,
   /** JSON string from restaurant.hallSchema */
   hallSchema,
   /** IDs of tables forming a suggested merge group (pulse effect) */
@@ -170,6 +179,8 @@ function TableFloorPlan({
   mergedCapacity = null,
   /** Called when user clicks a table that is part of the suggested pair */
   onSelectMergedPair = null,
+  /** Require known slot occupancy (no «unknown» tables) */
+  strictBooking = false,
 }) {
   const viewportRef = useRef(null);
   const dragRef = useRef(null);
@@ -192,11 +203,11 @@ function TableFloorPlan({
     const onWheel = (e) => {
       e.preventDefault();
       const factor = e.deltaY > 0 ? 0.9 : 1.11;
-      setView((v) => ({ ...v, k: Math.min(2.8, Math.max(0.52, v.k * factor)) }));
+      setView((v) => ({ ...v, k: Math.min(2.8, Math.max(minZoomK, v.k * factor)) }));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [staticMode]);
+  }, [staticMode, minZoomK]);
 
   /* Pan via drag — disabled in staticMode */
   const onPointerDownBackdrop = useCallback((e) => {
@@ -225,7 +236,8 @@ function TableFloorPlan({
   }, [staticMode]);
 
   const zoomIn  = () => setView((v) => ({ ...v, k: Math.min(2.8, v.k * 1.15) }));
-  const zoomOut = () => setView((v) => ({ ...v, k: Math.max(0.52, v.k / 1.15) }));
+  const zoomOut = () => setView((v) => ({ ...v, k: Math.max(minZoomK, v.k / 1.15) }));
+  const canZoomOut = view.k > minZoomK + 0.001;
   const resetView = () => setView({ k: 1, px: 0, py: 0 });
 
   const statusForTable = layoutOnly
@@ -245,7 +257,7 @@ function TableFloorPlan({
         onSelectMergedPair();
         return;
       }
-      if (onSelectTable && canPreselectBookingTable(table, guestsCount)) {
+      if (onSelectTable && canPreselectBookingTable(table, guestsCount, { strict: strictBooking })) {
         onSelectTable(table.id);
       }
     }
@@ -429,6 +441,7 @@ function TableFloorPlan({
             <span className={styles.legendItem}><i className={styles.dotFree} /> свободен</span>
             <span className={styles.legendItem}><i className={styles.dotBooked} /> занят</span>
             <span className={styles.legendItem}><i className={styles.dotOverflow} /> +1 место</span>
+            <span className={styles.legendItem}><i className={styles.dotOversized} /> слишком велик</span>
             <span className={styles.legendItem}><i className={styles.dotMerge} /> объединить</span>
             <span className={styles.legendItem}><i className={styles.dotChosen} /> выбран</span>
           </>
@@ -438,7 +451,15 @@ function TableFloorPlan({
       {/* Zoom controls — hidden in staticMode */}
       {!staticMode && (
         <div className={styles.zoomBar}>
-          <button type="button" className={styles.zoomBtn} onClick={zoomOut} aria-label="Уменьшить">−</button>
+          <button
+            type="button"
+            className={styles.zoomBtn}
+            onClick={zoomOut}
+            disabled={!canZoomOut}
+            aria-label="Уменьшить"
+          >
+            −
+          </button>
           <button type="button" className={styles.zoomBtn} onClick={resetView} aria-label="Сброс">⊙</button>
           <button type="button" className={styles.zoomBtn} onClick={zoomIn} aria-label="Увеличить">+</button>
         </div>
@@ -491,6 +512,8 @@ function TableFloorPlan({
                 shapeClass = styles.shapeUnknown;
               } else if (st === 'small') {
                 shapeClass = styles.shapeSmall;
+              } else if (st === 'oversized') {
+                shapeClass = styles.shapeOversized;
               } else if (st === 'overflow') {
                 shapeClass = selected ? styles.shapeSelected : styles.shapeOverflow;
               }
@@ -500,7 +523,9 @@ function TableFloorPlan({
                 else if (selected && (st === 'free' || st === 'unknown' || st === 'overflow')) shapeClass = styles.shapeSelected;
               }
 
-              const isClickable = layoutOnly || canPreselectBookingTable(table, guestsCount) || suggestedSet.has(table.id);
+              const isClickable = layoutOnly
+                || canPreselectBookingTable(table, guestsCount, { strict: strictBooking })
+                || suggestedSet.has(table.id);
 
               return (
                 <g

@@ -6,7 +6,8 @@ const getByRestaurant = async (req, res, next) => {
   try {
     const result = await tablesService.getByRestaurant(
       parseInt(req.params.restaurantId, 10),
-      req.query.at || null
+      req.query.at || null,
+      req.query.excludeReservationId || null
     );
     res.json({ success: true, data: result.tables, adjacentPairs: result.adjacentPairs });
   } catch (err) {

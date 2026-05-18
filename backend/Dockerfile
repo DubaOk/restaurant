@@ -13,7 +13,13 @@ COPY prisma ./prisma
 RUN npx prisma generate
 
 COPY src ./src
+COPY scripts ./scripts
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh \
+    && chmod +x /app/docker-entrypoint.sh \
+    && mkdir -p uploads
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node src/app.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

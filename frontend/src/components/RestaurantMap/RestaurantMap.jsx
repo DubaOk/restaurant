@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import styles from './RestaurantMap.module.css';
 
 const MINSK_CENTER = [53.9023, 27.5619];
-const YANDEX_MAPS_API_KEY = import.meta.env.VITE_YANDEX_MAPS_API_KEY || '';
+import { getYandexMapsApiKey } from '../../utils/yandexMapsKey';
+
 const MAP_CONTAINER_ID = 'restaurants-yandex-map';
 
 const MAP_PIN_SVG = encodeURIComponent(
@@ -23,8 +24,9 @@ const MAP_PIN_HREF = `data:image/svg+xml;charset=UTF-8,${MAP_PIN_SVG}`;
 
 const getYandexMapsSrc = () => {
   const params = new URLSearchParams({ lang: 'ru_RU' });
-  if (YANDEX_MAPS_API_KEY) {
-    params.set('apikey', YANDEX_MAPS_API_KEY);
+  const apiKey = getYandexMapsApiKey();
+  if (apiKey) {
+    params.set('apikey', apiKey);
   }
   return `https://api-maps.yandex.ru/2.1/?${params.toString()}`;
 };

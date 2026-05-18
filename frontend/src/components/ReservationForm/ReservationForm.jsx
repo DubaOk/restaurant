@@ -5,6 +5,7 @@ import TableFloorPlan, {
   pickStatus,
   canPreselectBookingTable,
 } from '../TableFloorPlan/TableFloorPlan';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
 import styles from './ReservationForm.module.css';
 
 const DEPOSIT_PER_GUEST = 25;
@@ -19,9 +20,11 @@ function minDateTimeLocalFromNow() {
 function reservationOptionSuffix(table, guestsCount) {
   const st = pickStatus(table, guestsCount);
   if (st === 'free' || st === 'unknown') return '';
+  if (st === 'overflow') return ' · с доп. местами';
   if (st === 'booked') return ' · занят';
   if (st === 'disabled') return ' · не в брони';
   if (st === 'small') return ' · мало мест';
+  if (st === 'oversized') return ' · слишком большой';
   return ' · недоступен';
 }
 
@@ -66,7 +69,7 @@ const ReservationForm = ({ restaurantId }) => {
       if (prev == null) return prev;
       const t = tables.find((row) => row.id === prev);
       if (!t) return null;
-      if (!canPreselectBookingTable(t, form.guestsCount)) return null;
+      if (!canPreselectBookingTable(t, form.guestsCount, { strict: true })) return null;
       return prev;
     });
   }, [tables, form.guestsCount]);
@@ -81,10 +84,14 @@ const ReservationForm = ({ restaurantId }) => {
     [form.guestsCount]
   );
 
+  const selectedStatus = selectedTable ? pickStatus(selectedTable, form.guestsCount) : null;
+
   const canSubmit =
     Boolean(form.date && selectedTableId && tables.length) &&
     selectedTable &&
-    pickStatus(selectedTable, form.guestsCount) === 'free';
+    canPreselectBookingTable(selectedTable, form.guestsCount, { strict: true }) &&
+    selectedTable.slotKnown &&
+    selectedStatus !== 'booked';
 
   const handleChange = (e) => {
     setForm((prev) => ({
@@ -125,7 +132,7 @@ const ReservationForm = ({ restaurantId }) => {
   };
 
   return (
-    <form className={`${styles.shell} ${styles.shellBooking}`} onSubmit={handleSubmit}>
+    <ValidatedForm className={`${styles.shell} ${styles.shellBooking}`} onSubmit={handleSubmit}>
       {success && <p className={styles.success}>{success}</p>}
       {error && <p className={styles.error}>{error}</p>}
 
@@ -193,6 +200,7 @@ const ReservationForm = ({ restaurantId }) => {
               selectedTableId={selectedTableId}
               onSelectTable={(id) => setSelectedTableId(id)}
               bookingStretch
+              strictBooking
             />
             <details className={styles.fallback}>
               <summary>Выбрать стол из списка</summary>
@@ -220,12 +228,27 @@ const ReservationForm = ({ restaurantId }) => {
                   Стол №<strong>{selectedTable.number}</strong>
                 </p>
                 <p className={styles.sideMeta}>
-                  До {selectedTable.capacity} персон · гостей: {form.guestsCount}
+                  {selectedStatus === 'overflow' ? (
+                    <>
+                      Номинально до {selectedTable.capacity}, с доп. местами до{' '}
+                      {selectedTable.maxCapacity || selectedTable.capacity} · гостей: {form.guestsCount}
+                    </>
+                  ) : (
+                    <>
+                      До {selectedTable.maxCapacity || selectedTable.capacity} персон · гостей:{' '}
+                      {form.guestsCount}
+                    </>
+                  )}
                 </p>
+                {selectedStatus === 'overflow' && (
+                  <p className={styles.sideOverflow}>
+                    Понадобится дополнительное место — посадка будет чуть плотнее.
+                  </p>
+                )}
                 {!form.date && (
                   <p className={styles.sideNeedDate}>Укажите дату и время — подтвердим, что стол свободен.</p>
                 )}
-                {form.date && pickStatus(selectedTable, form.guestsCount) === 'booked' && (
+                {form.date && selectedStatus === 'booked' && (
                   <p className={styles.sideConflict}>На это время стол занят — выберите другой.</p>
                 )}
                 <div className={styles.depositBlock}>
@@ -261,7 +284,7 @@ const ReservationForm = ({ restaurantId }) => {
           </aside>
         </div>
       )}
-    </form>
+    </ValidatedForm>
   );
 };
 

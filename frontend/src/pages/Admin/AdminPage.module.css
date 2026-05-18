@@ -167,3 +167,9 @@
 .unblock:hover {
   background: linear-gradient(135deg, rgba(242, 208, 154, 0.32), rgba(201, 169, 98, 0.2));
 }
+
+.adminHint {
+  color: #5c6570;
+  font-size: 1.1rem;
+  user-select: none;
+}

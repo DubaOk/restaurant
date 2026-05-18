@@ -97,10 +97,54 @@
 }
 
 /* ─── Step 1: date / guests ─────────────────────────────── */
+.scheduleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem 1.05rem;
+  border-radius: 14px;
+  border: 1px solid rgba(242, 208, 154, 0.14);
+  background: linear-gradient(165deg, rgba(22, 26, 34, 0.95) 0%, rgba(14, 18, 24, 0.88) 100%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
 .dateTimeRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.scheduleMeta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(160, 168, 185, 0.75);
+  letter-spacing: 0.01em;
+}
+
+.schedulePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.72rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(242, 208, 154, 0.08);
+  border: 1px solid rgba(242, 208, 154, 0.22);
+}
+
+.schedulePreviewLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(242, 208, 154, 0.75);
+}
+
+.schedulePreviewValue {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f2f2f2;
+  line-height: 1.35;
+  text-transform: capitalize;
 }
 
 .field {
@@ -208,13 +252,101 @@
 
 .mergeSuggestion {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.65rem 0.95rem;
-  border-radius: 10px;
-  border: 1px solid rgba(80, 200, 155, 0.3);
-  background: rgba(80, 200, 155, 0.07);
+  flex-wrap: nowrap;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(80, 200, 155, 0.28);
+  background: linear-gradient(165deg, rgba(80, 200, 155, 0.09) 0%, rgba(14, 18, 24, 0.55) 100%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.mergeSuggestionBody {
+  flex: 1;
+  min-width: min(100%, 240px);
+}
+
+.mergeSuggestionLead {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: rgba(200, 230, 220, 0.9);
+  line-height: 1.45;
+}
+
+.mergeChipScroll {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(80, 200, 155, 0.45) rgba(14, 18, 24, 0.35);
+}
+
+.mergeChipScrollInner {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  padding: 2px 10px 8px;
+  align-items: stretch;
+  width: max-content;
+  min-height: 3.15rem;
+}
+
+.mergeChip {
+  flex: 0 0 auto;
+  min-width: 6.75rem;
+  max-width: 11rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  padding: 0.42rem 0.72rem;
+  border-radius: 11px;
+  border: 1px solid rgba(80, 200, 155, 0.35);
+  background: rgba(14, 22, 28, 0.55);
+  color: #e8eaed;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.mergeChip:hover {
+  border-color: rgba(80, 200, 155, 0.65);
+  background: rgba(80, 200, 155, 0.1);
+}
+
+.mergeChipActive {
+  border-color: rgba(242, 208, 154, 0.88);
+  background: rgba(242, 208, 154, 0.14);
+  box-shadow: 0 0 0 1px rgba(242, 208, 154, 0.25);
+}
+
+.mergeChipTitle {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.mergeChipMeta {
+  font-size: 0.68rem;
+  color: #9aa3b2;
+}
+
+.mergeHintSingle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(200, 215, 210, 0.9);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(80, 200, 155, 0.06);
+  border: 1px solid rgba(80, 200, 155, 0.18);
+  line-height: 1.45;
 }
 
 .mergeSuggestionIcon {

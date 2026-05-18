@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../../api/admin.api';
 import Navbar from '../../components/Navbar/Navbar';
+import { formatUserRole } from '../../utils/formatUserRole';
 import styles from './AdminPage.module.css';
 
 const AdminPage = () => {
@@ -63,19 +64,24 @@ const AdminPage = () => {
                     <td>{u.id}</td>
                     <td>{u.name}</td>
                     <td>{u.email}</td>
-                    <td>{u.role}</td>
+                    <td>{formatUserRole(u.role)}</td>
                     <td>
                       <span className={`${styles.badge} ${u.isBlocked ? styles.badgeBlocked : styles.badgeActive}`}>
                         {u.isBlocked ? 'Заблокирован' : 'Активен'}
                       </span>
                     </td>
                     <td>
-                      <button
-                        className={`${styles.btn} ${u.isBlocked ? styles.unblock : styles.block}`}
-                        onClick={() => toggleBlock(u)}
-                      >
-                        {u.isBlocked ? 'Разблокировать' : 'Заблокировать'}
-                      </button>
+                      {u.role === 'ADMIN' ? (
+                        <span className={styles.adminHint}>—</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`${styles.btn} ${u.isBlocked ? styles.unblock : styles.block}`}
+                          onClick={() => toggleBlock(u)}
+                        >
+                          {u.isBlocked ? 'Разблокировать' : 'Заблокировать'}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

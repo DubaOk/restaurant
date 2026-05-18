@@ -98,6 +98,7 @@ const OwnerReservations = ({ restaurantId }) => {
                 {r.status === 'PENDING' && (
                   <>
                     <button
+                      type="button"
                       className={styles.confirmBtn}
                       disabled={actionId === r.id}
                       onClick={() => handleAction(r.id, 'confirm')}
@@ -105,6 +106,7 @@ const OwnerReservations = ({ restaurantId }) => {
                       Подтвердить
                     </button>
                     <button
+                      type="button"
                       className={styles.cancelBtn}
                       disabled={actionId === r.id}
                       onClick={() => handleAction(r.id, 'cancel')}
@@ -116,6 +118,7 @@ const OwnerReservations = ({ restaurantId }) => {
                 {r.status === 'CONFIRMED' && (
                   <>
                     <button
+                      type="button"
                       className={styles.completeBtn}
                       disabled={actionId === r.id}
                       onClick={() => handleAction(r.id, 'complete')}
@@ -123,6 +126,7 @@ const OwnerReservations = ({ restaurantId }) => {
                       {actionId === r.id ? '…' : '✓ Посещение состоялось'}
                     </button>
                     <button
+                      type="button"
                       className={styles.cancelBtn}
                       disabled={actionId === r.id}
                       onClick={() => handleAction(r.id, 'cancel')}

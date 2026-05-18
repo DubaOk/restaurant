@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { YMaps, Map, Placemark, useYMaps } from '@pbe/react-yandex-maps';
 import { restaurantsApi } from '../../api/restaurants.api';
 import { BELARUS_CITY_NAMES, getCityMapCenter } from '../../constants/belarusCities';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
+import CustomSelect from '../CustomSelect/CustomSelect';
 import styles from './OwnerRestaurantForm.module.css';
 
-const YANDEX_MAPS_API_KEY = import.meta.env.VITE_YANDEX_MAPS_API_KEY || '';
+import { getYandexMapsApiKey } from '../../utils/yandexMapsKey';
 
 function formatAddressForField(fullLine) {
   if (!fullLine) return '';
@@ -204,6 +206,11 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
 
   const cityCenter = useMemo(() => getCityMapCenter(form.city), [form.city]);
 
+  const cityOptions = useMemo(
+    () => BELARUS_CITY_NAMES.map((c) => ({ value: c, label: c })),
+    [],
+  );
+
   useEffect(() => {
     if (restaurant) {
       setForm({
@@ -274,7 +281,8 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
 
   const mapQuery = useMemo(() => {
     const query = { lang: 'ru_RU', load: 'package.full' };
-    if (YANDEX_MAPS_API_KEY) query.apikey = YANDEX_MAPS_API_KEY;
+    const apiKey = getYandexMapsApiKey();
+    if (apiKey) query.apikey = apiKey;
     return query;
   }, []);
 
@@ -313,7 +321,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
 
   return (
     <YMaps version="2.1" query={mapQuery}>
-      <form onSubmit={handleSubmit} className={styles.form}>
+      <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
         <h2>{isEdit ? 'Карточка заведения' : 'Новое заведение в гиде'}</h2>
 
         {success && <p className={styles.success}>{success}</p>}
@@ -329,15 +337,15 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
             <input name="cuisine" value={form.cuisine} onChange={handleChange} required placeholder="Итальянская" />
           </div>
           <div className={styles.field}>
-            <label>Город *</label>
-            <div className={styles.selectWrap}>
-              <select name="city" value={form.city} onChange={handleChange} required className={styles.select}>
-                {BELARUS_CITY_NAMES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <span className={styles.selectArrow}>▾</span>
-            </div>
+            <label htmlFor="owner-restaurant-city">Город *</label>
+            <CustomSelect
+              id="owner-restaurant-city"
+              value={form.city}
+              onChange={(city) => setForm((prev) => ({ ...prev, city }))}
+              options={cityOptions}
+              placeholder="Выберите город"
+              aria-label="Город"
+            />
           </div>
           <div className={styles.field}>
             <label>Телефон</label>
@@ -415,7 +423,7 @@ const OwnerRestaurantForm = ({ restaurant, onSaved }) => {
         <button type="submit" className={styles.btn} disabled={saving}>
           {saving ? 'Сохранение...' : isEdit ? 'Сохранить карточку' : 'Добавить в гид'}
         </button>
-      </form>
+      </ValidatedForm>
     </YMaps>
   );
 };

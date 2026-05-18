@@ -50,10 +50,23 @@ const getProfile = async (userId) => {
   return sanitizeUser(user);
 };
 
+const BY_PHONE = /^(\+?375)?[\s\-()]*((17|25|29|33|44))[\s\-()]*\d{3}[\s\-()]*\d{2}[\s\-()]*\d{2}$/;
+
+const normalizePhone = (phone) => {
+  if (phone == null || String(phone).trim() === '') return null;
+  const trimmed = String(phone).trim();
+  if (!BY_PHONE.test(trimmed)) {
+    throw ApiError.badRequest(
+      'Телефон: укажите номер в формате +375 XX XXX-XX-XX (код 17, 25, 29, 33 или 44) или оставьте пустым',
+    );
+  }
+  return trimmed;
+};
+
 const updateProfile = async (userId, { name, phone }) => {
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { name, phone },
+    data: { name, phone: normalizePhone(phone) },
   });
   return sanitizeUser(user);
 };

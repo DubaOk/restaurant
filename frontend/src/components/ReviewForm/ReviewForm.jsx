@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { reviewsApi } from '../../api/reviews.api';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
 import styles from './ReviewForm.module.css';
 
 const ReviewForm = ({ restaurantId, onCreated }) => {
@@ -26,7 +27,7 @@ const ReviewForm = ({ restaurantId, onCreated }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
+    <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
       <div className={styles.stars}>
         {Array.from({ length: 5 }).map((_, i) => (
           <button
@@ -52,7 +53,7 @@ const ReviewForm = ({ restaurantId, onCreated }) => {
       <button type="submit" className={styles.btn} disabled={loading}>
         {loading ? 'Отправка...' : 'Отправить отзыв'}
       </button>
-    </form>
+    </ValidatedForm>
   );
 };
 

@@ -47,45 +47,6 @@
   box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.15);
 }
 
-/* ── City select ────────────────────────────────────────── */
-.selectWrap {
-  position: relative;
-}
-
-.select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: 0.62rem 2.2rem 0.62rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(14, 18, 24, 0.95);
-  color: #f2f2f2;
-  font-size: 0.94rem;
-  outline: none;
-  width: 100%;
-  cursor: pointer;
-}
-
-.select:focus {
-  border-color: rgba(242, 208, 154, 0.55);
-  box-shadow: 0 0 0 3px rgba(184, 154, 99, 0.15);
-}
-
-.select option {
-  background: #1a1f2b;
-  color: #f2f2f2;
-}
-
-.selectArrow {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #9aa3b2;
-  font-size: 0.9rem;
-}
-
 /* ── Address suggest ────────────────────────────────────── */
 .suggestWrap {
   position: relative;

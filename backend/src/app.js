@@ -22,6 +22,8 @@ const geoRouter = require('./modules/geo/geo.router');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 app.use(cors({ origin: '*', credentials: true }));
 
 if (nodeEnv !== 'test') {

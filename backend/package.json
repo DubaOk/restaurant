@@ -9,7 +9,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "db:seed-demo": "node prisma/seed.js",
+    "db:refresh-images": "node scripts/refresh-demo-images.js",
+    "db:seed-reservations": "node scripts/seed-demo-reservations.js",
+    "admin:ensure": "node scripts/ensure-admin.js",
+    "db:reset": "node scripts/reset-db.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",

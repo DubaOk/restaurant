@@ -24,7 +24,8 @@ function buildGallery(restaurant) {
   const urls = restaurant.images?.length
     ? restaurant.images.map((img) => img.url)
     : restaurant.imageUrl ? [restaurant.imageUrl] : [];
-  const fallback = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1500&q=80';
+  const fallback =
+    'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=1500&fit=crop';
   const prepared = [...urls];
   while (prepared.length < 4) prepared.push(prepared[prepared.length - 1] || fallback);
   return prepared.slice(0, 4);

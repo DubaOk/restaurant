@@ -7,13 +7,13 @@ const controller = require('./tables.controller');
 const createRules = [
   body('restaurantId').isInt({ min: 1 }).withMessage('Укажите ресторан'),
   body('number').isInt({ min: 1 }).withMessage('Номер стола от 1'),
-  body('capacity').isInt({ min: 1, max: 50 }).withMessage('Вместимость 1–50'),
+  body('capacity').isInt({ min: 1, max: 10 }).withMessage('Вместимость 1–10'),
   body('isAvailable').optional().isBoolean().withMessage('isAvailable должен быть boolean'),
 ];
 
 const updateRules = [
   body('number').optional().isInt({ min: 1 }).withMessage('Номер стола от 1'),
-  body('capacity').optional().isInt({ min: 1, max: 50 }).withMessage('Вместимость 1–50'),
+  body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('Вместимость 1–10'),
   body('isAvailable').optional().isBoolean().withMessage('isAvailable должен быть boolean'),
 ];
 

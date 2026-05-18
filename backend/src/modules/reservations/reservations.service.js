@@ -2,6 +2,7 @@ const prisma = require('../../utils/prismaClient');
 const ApiError = require('../../utils/apiError');
 const bonusesService = require('../bonuses/bonuses.service');
 
+/** Relations only — scalar fields (extraChair, combinedWith*) return by default */
 const RESERVATION_INCLUDE = {
   restaurant: { select: { id: true, name: true, address: true } },
   table: { select: { id: true, number: true, capacity: true, maxCapacity: true } },
@@ -30,6 +31,12 @@ const getRestaurantReservations = async (restaurantId, ownerId) => {
 const DEPOSIT_PER_GUEST = 25;
 
 const calcDeposit = (guestsCount) => Math.max(DEPOSIT_PER_GUEST, guestsCount * DEPOSIT_PER_GUEST);
+
+/** Допустимый запас пустых номинальных мест у одного стола (для компаний от 4 — мягче) */
+const nominalPartySlack = (guestsCount) =>
+  guestsCount >= 4
+    ? Math.max(4, Math.ceil(guestsCount * 0.85))
+    : Math.max(2, Math.ceil(guestsCount / 2));
 
 const normalizeTableIds = (tableId, combinedWithTableId, combinedWithTableIds) => {
   const ids = [tableId];
@@ -66,6 +73,29 @@ const checkSlotConflict = async (restaurantId, requestedTableIds, date, excludeI
   return reservations.find((r) => getBusyTableIds(r).some((id) => requested.has(id))) || null;
 };
 
+const sumCapacities = (tables) => {
+  const combinedCap = tables.reduce((sum, t) => sum + t.capacity, 0);
+  const combinedMax = tables.reduce((sum, t) => sum + (t.maxCapacity || t.capacity), 0);
+  return { combinedCap, combinedMax };
+};
+
+const assertGuestsFitTables = (tables, guestsCount, requestedTableIds) => {
+  const { combinedCap, combinedMax } = sumCapacities(tables);
+  if (guestsCount > combinedMax) {
+    const label = requestedTableIds.length > 1 ? 'Объединённый стол' : 'Столик';
+    throw ApiError.badRequest(`${label} рассчитан максимум на ${combinedMax} гостей`);
+  }
+  if (requestedTableIds.length === 1 && guestsCount <= combinedCap) {
+    const slack = nominalPartySlack(guestsCount);
+    if (combinedCap - guestsCount > slack) {
+      throw ApiError.badRequest(
+        'Выберите стол ближе по размеру к числу гостей — слишком много свободных мест за одним столиком',
+      );
+    }
+  }
+  return { combinedCap, combinedMax };
+};
+
 const create = async (
   userId,
   { restaurantId, tableId, combinedWithTableId, combinedWithTableIds, date, guestsCount, comment, bonusesToSpend }
@@ -80,15 +110,18 @@ const create = async (
   if (tables.length !== requestedTableIds.length) {
     throw ApiError.notFound('Один или несколько столиков не найдены в этом ресторане');
   }
-  const mainTable = tables.find((t) => t.id === tableId) || tables[0];
-
-  const joinsCount = Math.max(0, requestedTableIds.length - 1);
-  const combinedCap = tables.reduce((sum, t) => sum + t.capacity, 0) - (joinsCount * 2);
-  const combinedMax = tables.reduce((sum, t) => sum + (t.maxCapacity || t.capacity), 0) - (joinsCount * 2);
-  if (guestsCount > combinedMax) {
-    const label = requestedTableIds.length > 1 ? 'Объединённый стол' : 'Столик';
-    throw ApiError.badRequest(`${label} рассчитан максимум на ${combinedMax} гостей`);
+  if (tables.some((t) => !t.isAvailable)) {
+    throw ApiError.badRequest('Один или несколько столиков недоступны для бронирования');
   }
+
+  const mainTable =
+    (Number.isFinite(Number(tableId)) && tables.find((t) => t.id === Number(tableId)))
+    || (requestedTableIds.length === 1 ? tables[0] : null);
+  if (!mainTable) {
+    throw ApiError.badRequest('Укажите корректный основной столик (tableId)');
+  }
+
+  const { combinedCap } = assertGuestsFitTables(tables, guestsCount, requestedTableIds);
 
   const conflict = await checkSlotConflict(restaurantId, requestedTableIds, date);
   if (conflict) throw ApiError.conflict('Один из столиков уже занят на выбранное время');
@@ -138,29 +171,65 @@ const update = async (id, userId, { date, guestsCount, tableId }) => {
   if (reservation.userId !== userId) throw ApiError.forbidden('Нет прав');
   if (reservation.status !== 'PENDING') throw ApiError.badRequest('Изменять можно только ожидающие бронирования');
 
-  const checkTableId = tableId || reservation.tableId;
+  const effectiveGuests = guestsCount ?? reservation.guestsCount;
   const checkDate = date ? new Date(date) : reservation.date;
+  const switchingTable = tableId && tableId !== reservation.tableId;
+  const clearCombined = Boolean(switchingTable);
 
-  if (tableId && tableId !== reservation.tableId) {
-    const table = await prisma.table.findFirst({
-      where: { id: tableId, restaurantId: reservation.restaurantId },
-    });
-    if (!table) throw ApiError.notFound('Столик не найден');
-    const effectiveGuests = guestsCount || reservation.guestsCount;
-    if (table.capacity < effectiveGuests)
-      throw ApiError.badRequest(`Столик рассчитан максимум на ${table.capacity} гостей`);
+  let targetTableIds;
+  if (clearCombined) {
+    targetTableIds = [tableId];
+  } else {
+    targetTableIds = getBusyTableIds(reservation);
   }
 
-  const conflict = await checkSlotConflict(reservation.restaurantId, [checkTableId], checkDate, id);
-  if (conflict) throw ApiError.conflict('Столик уже занят на выбранное время');
+  const tables = await prisma.table.findMany({
+    where: { id: { in: targetTableIds }, restaurantId: reservation.restaurantId },
+  });
+  if (tables.length !== targetTableIds.length) {
+    throw ApiError.notFound('Один или несколько столиков не найдены');
+  }
+  if (tables.some((t) => !t.isAvailable)) {
+    throw ApiError.badRequest('Столик недоступен для бронирования');
+  }
+
+  const { combinedCap } = assertGuestsFitTables(tables, effectiveGuests, targetTableIds);
+
+  const conflict = await checkSlotConflict(
+    reservation.restaurantId,
+    targetTableIds,
+    checkDate,
+    id,
+  );
+  if (conflict) {
+    throw ApiError.conflict(
+      targetTableIds.length > 1
+        ? 'Один из столиков уже занят на выбранное время'
+        : 'Столик уже занят на выбранное время',
+    );
+  }
+
+  const mainTableId = tableId || reservation.tableId;
+  const extraIds = clearCombined ? [] : targetTableIds.filter((tid) => tid !== mainTableId);
+  const extraChair = effectiveGuests > combinedCap;
+
+  const data = {
+    ...(date && { date: new Date(date) }),
+    ...(guestsCount != null && { guestsCount }),
+    ...(tableId && { tableId }),
+  };
+
+  if (clearCombined) {
+    data.combinedWithTableId = null;
+    data.combinedWithTableIds = [];
+    data.extraChair = extraChair;
+  } else if (guestsCount != null) {
+    data.extraChair = extraChair;
+  }
 
   return prisma.reservation.update({
     where: { id },
-    data: {
-      ...(date && { date: new Date(date) }),
-      ...(guestsCount && { guestsCount }),
-      ...(tableId && { tableId }),
-    },
+    data,
     include: RESERVATION_INCLUDE,
   });
 };

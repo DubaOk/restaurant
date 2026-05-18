@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { restaurantsApi } from '../../api/restaurants.api';
 import RestaurantMap from '../../components/RestaurantMap/RestaurantMap';
+import CustomSelect from '../../components/CustomSelect/CustomSelect';
 import Navbar from '../../components/Navbar/Navbar';
 import { BELARUS_CITY_NAMES } from '../../constants/belarusCities';
 import { APP_NAME, APP_TAGLINE } from '../../constants/brand';
@@ -48,6 +49,40 @@ const RestaurantsPage = () => {
     [restaurants]
   );
 
+  const cityOptions = useMemo(
+    () => [
+      { value: '', label: 'Вся Беларусь' },
+      ...BELARUS_CITY_NAMES.map((city) => ({ value: city, label: city })),
+    ],
+    [],
+  );
+
+  const cuisineOptions = useMemo(
+    () => [
+      { value: '', label: 'Все кухни' },
+      ...cuisines.map((c) => ({ value: c, label: c })),
+    ],
+    [cuisines],
+  );
+
+  const sortByOptions = useMemo(
+    () => [
+      { value: '', label: 'По умолчанию' },
+      { value: 'name', label: 'По названию' },
+      { value: 'avgRating', label: 'По рейтингу' },
+      { value: 'cuisine', label: 'По кухне' },
+    ],
+    [],
+  );
+
+  const sortOrderOptions = useMemo(
+    () => [
+      { value: 'asc', label: 'По возрастанию' },
+      { value: 'desc', label: 'По убыванию' },
+    ],
+    [],
+  );
+
   const filteredRestaurants = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     const list = restaurants.filter((r) => {
@@ -82,6 +117,28 @@ const RestaurantsPage = () => {
     [filteredRestaurants]
   );
 
+  const scrollGalleryByStep = useCallback((direction) => {
+    const track = galleryRef.current;
+    if (!track) return false;
+    const cards = track.querySelectorAll('[data-gallery-card]');
+    if (!cards.length) return false;
+
+    let idx = 0;
+    let best = Infinity;
+    const anchor = track.scrollLeft;
+    for (let i = 0; i < cards.length; i++) {
+      const d = Math.abs(cards[i].offsetLeft - anchor);
+      if (d < best) {
+        best = d;
+        idx = i;
+      }
+    }
+    const next = Math.min(cards.length - 1, Math.max(0, idx + direction));
+    if (next === idx) return false;
+    track.scrollTo({ left: cards[next].offsetLeft, behavior: 'smooth' });
+    return true;
+  }, []);
+
   useEffect(() => {
     const shell = galleryShellRef.current;
     const track = galleryRef.current;
@@ -90,8 +147,10 @@ const RestaurantsPage = () => {
 
     const cardsSel = () => track.querySelectorAll('[data-gallery-card]');
 
-    let rafProgress = null;
-    let rafActive = null;
+    let rafId = null;
+    let lastActiveIdx = -1;
+    let wheelLocked = false;
+    let wheelUnlockTimer = null;
 
     const syncProgress = () => {
       if (!fill || !track) return;
@@ -99,16 +158,6 @@ const RestaurantsPage = () => {
       const pct = maxScroll <= 0 ? 0 : (track.scrollLeft / maxScroll) * 100;
       fill.style.width = `${pct}%`;
     };
-
-    const scheduleProgress = () => {
-      if (rafProgress != null) return;
-      rafProgress = requestAnimationFrame(() => {
-        rafProgress = null;
-        syncProgress();
-      });
-    };
-
-    let lastActiveIdx = -1;
 
     const syncActiveCard = () => {
       const cards = cardsSel();
@@ -134,18 +183,16 @@ const RestaurantsPage = () => {
       if (lastActiveIdx >= 0 && cards[lastActiveIdx]) {
         cards[lastActiveIdx].classList.remove(styles.galleryCardActive);
       }
-      if (cards[bestIdx]) {
-        cards[bestIdx].classList.add(styles.galleryCardActive);
-      }
+      cards[bestIdx]?.classList.add(styles.galleryCardActive);
       lastActiveIdx = bestIdx;
     };
 
-    const scheduleActive = () => {
-      if (rafActive != null) return;
-      rafActive = requestAnimationFrame(() => {
-        rafActive = null;
-        syncActiveCard();
+    const onScroll = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
         syncProgress();
+        syncActiveCard();
       });
     };
 
@@ -164,103 +211,52 @@ const RestaurantsPage = () => {
       return dy;
     };
 
-    let pointerInShell = false;
-    let wheelCooldown = false;
-    const COOLDOWN_MS = 420;
-
-    const resolveGalleryStep = (dir) => {
-      const cards = cardsSel();
-      if (!cards.length) return null;
-      const n = cards.length;
-      const maxScroll = Math.max(0, track.scrollWidth - track.clientWidth);
-      if (maxScroll <= 0) return null;
-
-      let idx = 0;
-      let best = Infinity;
-      const anchor = track.scrollLeft;
-      for (let i = 0; i < n; i++) {
-        const d = Math.abs(cards[i].offsetLeft - anchor);
-        if (d < best) {
-          best = d;
-          idx = i;
-        }
-      }
-      const next = Math.min(n - 1, Math.max(0, idx + dir));
-      if (next === idx) return null;
-      return cards[next].offsetLeft;
-    };
-
-    const onWheelDocument = (e) => {
-      if (e.ctrlKey || view !== 'gallery') return;
-      if (!pointerInShell) return;
-      if (!shell.contains(e.target)) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey) return;
       if (e.target.closest?.('[data-gallery-chrome]')) return;
 
       const raw = getWheelDelta(e);
       if (raw === 0) return;
 
       const dir = raw > 0 ? 1 : -1;
-      const targetLeft = resolveGalleryStep(dir);
-      if (targetLeft == null) return;
 
-      if (wheelCooldown) {
+      if (wheelLocked) {
         e.preventDefault();
-        e.stopPropagation();
         return;
       }
 
-      e.preventDefault();
-      e.stopPropagation();
-      wheelCooldown = true;
-      window.setTimeout(() => {
-        wheelCooldown = false;
-      }, COOLDOWN_MS);
-      track.scrollTo({ left: targetLeft, behavior: 'smooth' });
-    };
+      const moved = scrollGalleryByStep(dir);
+      if (!moved) return;
 
-    const onPointerEnterShell = () => {
-      pointerInShell = true;
-    };
-    const onPointerLeaveShell = () => {
-      pointerInShell = false;
+      e.preventDefault();
+      wheelLocked = true;
+      if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
+      wheelUnlockTimer = window.setTimeout(() => {
+        wheelLocked = false;
+        wheelUnlockTimer = null;
+      }, 380);
     };
 
     syncProgress();
     syncActiveCard();
-    shell.addEventListener('pointerenter', onPointerEnterShell);
-    shell.addEventListener('pointerleave', onPointerLeaveShell);
-    track.addEventListener('scroll', scheduleActive, { passive: true });
-    document.addEventListener('wheel', onWheelDocument, { passive: false, capture: true });
-    window.addEventListener('resize', scheduleProgress);
+
+    const wheelOpts = { passive: false };
+    shell.addEventListener('wheel', onWheel, wheelOpts);
+    track.addEventListener('wheel', onWheel, wheelOpts);
+    track.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
     return () => {
-      shell.removeEventListener('pointerenter', onPointerEnterShell);
-      shell.removeEventListener('pointerleave', onPointerLeaveShell);
-      track.removeEventListener('scroll', scheduleActive);
-      document.removeEventListener('wheel', onWheelDocument, true);
-      window.removeEventListener('resize', scheduleProgress);
-      if (rafProgress != null) cancelAnimationFrame(rafProgress);
-      if (rafActive != null) cancelAnimationFrame(rafActive);
+      shell.removeEventListener('wheel', onWheel, wheelOpts);
+      track.removeEventListener('wheel', onWheel, wheelOpts);
+      track.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+      if (wheelUnlockTimer) clearTimeout(wheelUnlockTimer);
     };
-  }, [view, galleryDeckKey]);
+  }, [view, galleryDeckKey, scrollGalleryByStep]);
 
   const scrollGallery = (direction) => {
-    const track = galleryRef.current;
-    if (!track) return;
-    const cards = track.querySelectorAll('[data-gallery-card]');
-    if (!cards.length) return;
-    const n = cards.length;
-    let idx = 0;
-    let best = Infinity;
-    const anchor = track.scrollLeft;
-    for (let i = 0; i < n; i++) {
-      const d = Math.abs(cards[i].offsetLeft - anchor);
-      if (d < best) {
-        best = d;
-        idx = i;
-      }
-    }
-    const next = Math.min(n - 1, Math.max(0, idx + direction));
-    track.scrollTo({ left: cards[next].offsetLeft, behavior: 'smooth' });
+    scrollGalleryByStep(direction);
   };
 
   const renderRestaurantCard = (restaurant, { gallery = false, large = false } = {}) => {
@@ -324,20 +320,16 @@ const RestaurantsPage = () => {
             <h1>РЕСТОРАНЫ И ЗАВЕДЕНИЯ</h1>
             <p className={styles.subtitle}>{APP_TAGLINE}</p>
             <div className={styles.heroCityRow}>
-              <label className={styles.heroCityLabel}>
+              <label className={styles.heroCityLabel} htmlFor="hero-city-select">
                 Город
-                <select
-                  className={styles.heroCitySelect}
+                <CustomSelect
+                  id="hero-city-select"
                   value={filters.city}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value }))}
-                >
-                  <option value="">Вся Беларусь</option>
-                  {BELARUS_CITY_NAMES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(city) => setFilters((prev) => ({ ...prev, city }))}
+                  options={cityOptions}
+                  placeholder="Вся Беларусь"
+                  aria-label="Город"
+                />
               </label>
             </div>
             <div className={styles.heroMeta}>
@@ -405,17 +397,13 @@ const RestaurantsPage = () => {
                     <h2>Подбор заведения</h2>
                     <label>
                       Город
-                      <select
+                      <CustomSelect
                         value={filters.city}
-                        onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value }))}
-                      >
-                        <option value="">Вся Беларусь</option>
-                        {BELARUS_CITY_NAMES.map((city) => (
-                          <option key={city} value={city}>
-                            {city}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(city) => setFilters((prev) => ({ ...prev, city }))}
+                        options={cityOptions}
+                        placeholder="Вся Беларусь"
+                        aria-label="Город"
+                      />
                     </label>
                     <label>
                       Поиск по названию, адресу или городу
@@ -427,40 +415,34 @@ const RestaurantsPage = () => {
                     </label>
                     <label>
                       Тип кухни / концепция
-                      <select
+                      <CustomSelect
                         value={filters.cuisine}
-                        onChange={(e) => setFilters((prev) => ({ ...prev, cuisine: e.target.value }))}
-                      >
-                        <option value="">Все кухни</option>
-                        {cuisines.map((cuisine) => (
-                          <option key={cuisine} value={cuisine}>
-                            {cuisine}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(cuisine) => setFilters((prev) => ({ ...prev, cuisine }))}
+                        options={cuisineOptions}
+                        placeholder="Все кухни"
+                        aria-label="Тип кухни"
+                      />
                     </label>
                     <label>
                       Сортировка
-                      <select
+                      <CustomSelect
                         value={filters.sortBy}
-                        onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value }))}
-                      >
-                        <option value="">По умолчанию</option>
-                        <option value="name">По названию</option>
-                        <option value="avgRating">По рейтингу</option>
-                        <option value="cuisine">По кухне</option>
-                      </select>
+                        onChange={(sortBy) => setFilters((prev) => ({ ...prev, sortBy }))}
+                        options={sortByOptions}
+                        placeholder="По умолчанию"
+                        aria-label="Сортировка"
+                      />
                     </label>
                     {filters.sortBy && (
                       <label>
                         Направление
-                        <select
+                        <CustomSelect
                           value={filters.sortOrder}
-                          onChange={(e) => setFilters((prev) => ({ ...prev, sortOrder: e.target.value }))}
-                        >
-                          <option value="asc">По возрастанию</option>
-                          <option value="desc">По убыванию</option>
-                        </select>
+                          onChange={(sortOrder) => setFilters((prev) => ({ ...prev, sortOrder }))}
+                          options={sortOrderOptions}
+                          placeholder="Направление"
+                          aria-label="Направление сортировки"
+                        />
                       </label>
                     )}
                   </div>

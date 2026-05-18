@@ -1,21 +1,129 @@
+# Один запуск — всё готово:
+#   .\docker-up.ps1
+#   (или: docker compose --env-file .env.docker up -d --build)
+# Ключ Яндекс.Карт: VITE_YANDEX_MAPS_API_KEY и YANDEX_MAPS_API_KEY в .env.docker / .env
+#
+# Сайт: https://localhost  (самоподписанный TLS, подтвердите в браузере)
+# Админ: admin@restaurants.by / admin123
+
 services:
+  init-ssl:
+    image: alpine/openssl:3.3.2
+    container_name: restaurants_init_ssl
+    volumes:
+      - ./scripts/docker-init-ssl.sh:/init.sh:ro
+      - ssl_certs:/ssl
+    entrypoint: ["/bin/sh", "-c", "sed 's/\\r$//' /init.sh | /bin/sh"]
+    restart: "no"
+    networks:
+      - internal
+
   postgres:
     image: postgres:16-alpine
     container_name: restaurants_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: restaurants_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-restaurants_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d restaurants_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-restaurants_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: restaurants_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-restaurants_db}
+      JWT_SECRET: ${JWT_SECRET:-burmalda_dev_jwt_secret_change_me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      NODE_ENV: production
+      PORT: 5000
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@restaurants.by}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_NAME: ${ADMIN_NAME:-Администратор}
+      ENSURE_ADMIN: "true"
+      YANDEX_MAPS_API_KEY: ${YANDEX_MAPS_API_KEY:-}
+      YANDEX_GEOSUGGEST_API_KEY: ${YANDEX_GEOSUGGEST_API_KEY:-}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "5000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 40s
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+    container_name: restaurants_frontend
+    restart: unless-stopped
+    environment:
+      VITE_YANDEX_MAPS_API_KEY: ${VITE_YANDEX_MAPS_API_KEY:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+    networks:
+      - internal
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: restaurants_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ssl_certs:/etc/nginx/ssl:ro
+    depends_on:
+      init-ssl:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    networks:
+      - internal
 
 volumes:
   postgres_data:
+  uploads_data:
+  ssl_certs:
+
+networks:
+  internal:
+    driver: bridge

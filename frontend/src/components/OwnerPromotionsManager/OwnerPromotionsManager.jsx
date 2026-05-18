@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { promotionsApi } from '../../api/promotions.api';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
+import DatePicker from '../DatePicker/DatePicker';
 import styles from './OwnerPromotionsManager.module.css';
 
 const EMPTY_PROMO = { title: '', description: '', startDate: '', endDate: '' };
@@ -8,11 +10,46 @@ const EMPTY_PROMO = { title: '', description: '', startDate: '', endDate: '' };
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('ru-RU') : '—');
 const toInputDate = (iso) => (iso ? new Date(iso).toISOString().slice(0, 10) : '');
 const isExpired = (promo) => promo.endDate && new Date(promo.endDate) < new Date();
-const validateDates = (startDate, endDate) => {
+
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Минимум для «Конца»: не раньше сегодня и не раньше даты начала */
+const minEndDate = (startDate) => {
+  const today = todayISO();
+  if (!startDate || startDate < today) return today;
+  return startDate;
+};
+
+const validateDates = (startDate, endDate, originalStartDate = null) => {
+  const today = todayISO();
   if (startDate && endDate && endDate < startDate) {
     return 'Дата окончания не может быть раньше даты начала';
   }
+  if (startDate && startDate < today && startDate !== originalStartDate) {
+    return 'Дата начала не может быть в прошлом';
+  }
+  if (endDate && endDate < today) {
+    return 'Дата окончания не может быть в прошлом';
+  }
   return null;
+};
+
+const syncDateRange = (prev, patch) => {
+  const next = { ...prev, ...patch };
+  const today = todayISO();
+  if (next.startDate && next.startDate < today) {
+    next.startDate = today;
+  }
+  if (next.startDate && next.endDate && next.endDate < next.startDate) {
+    next.endDate = next.startDate;
+  }
+  if (next.endDate && next.endDate < today) {
+    next.endDate = today;
+  }
+  return next;
 };
 
 const OwnerPromotionsManager = ({ restaurantId }) => {
@@ -37,16 +74,22 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
 
   const startEdit = (promo) => {
     setEditingId(promo.id);
+    const startDate = toInputDate(promo.startDate);
     setEditForm({
       title: promo.title,
       description: promo.description,
-      startDate: toInputDate(promo.startDate),
+      startDate,
       endDate: toInputDate(promo.endDate),
+      originalStartDate: startDate,
     });
   };
 
   const handleSave = async (id) => {
-    const dateErr = validateDates(editForm.startDate, editForm.endDate);
+    const dateErr = validateDates(
+      editForm.startDate,
+      editForm.endDate,
+      editForm.originalStartDate,
+    );
     if (dateErr) { setError(dateErr); return; }
     setSaving(true);
     try {
@@ -133,24 +176,25 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
                   onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                 />
                 <div className={styles.dateRow}>
-                  <label className={styles.dateLabel}>
-                    Начало
-                    <input
-                      type="date"
-                      className={styles.dateInput}
+                  <div className={styles.dateField}>
+                    <span className={styles.dateLabel}>Начало</span>
+                    <DatePicker
                       value={editForm.startDate}
-                      onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
+                      min={todayISO()}
+                      onChange={(startDate) => setEditForm((p) => syncDateRange(p, { startDate }))}
+                      placeholder="Выберите дату"
                     />
-                  </label>
-                  <label className={styles.dateLabel}>
-                    Конец
-                    <input
-                      type="date"
-                      className={styles.dateInput}
+                  </div>
+                  <div className={styles.dateField}>
+                    <span className={styles.dateLabel}>Конец</span>
+                    <DatePicker
                       value={editForm.endDate}
-                      onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
+                      min={minEndDate(editForm.startDate)}
+                      onChange={(endDate) => setEditForm((p) => syncDateRange(p, { endDate }))}
+                      placeholder="Выберите дату"
+                      popupAlign="end"
                     />
-                  </label>
+                  </div>
                 </div>
                 <div className={styles.actions}>
                   <button
@@ -194,7 +238,7 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
         ))}
       </div>
 
-      <form onSubmit={handleAdd} className={styles.addForm}>
+      <ValidatedForm onSubmit={handleAdd} className={styles.addForm}>
         <h4 className={styles.addTitle}>Добавить акцию</h4>
         <input
           className={styles.input}
@@ -212,29 +256,30 @@ const OwnerPromotionsManager = ({ restaurantId }) => {
           required
         />
         <div className={styles.dateRow}>
-          <label className={styles.dateLabel}>
-            Начало
-            <input
-              type="date"
-              className={styles.dateInput}
+          <div className={styles.dateField}>
+            <span className={styles.dateLabel}>Начало</span>
+            <DatePicker
               value={newPromo.startDate}
-              onChange={(e) => setNewPromo((p) => ({ ...p, startDate: e.target.value }))}
+              min={todayISO()}
+              onChange={(startDate) => setNewPromo((p) => syncDateRange(p, { startDate }))}
+              placeholder="Выберите дату"
             />
-          </label>
-          <label className={styles.dateLabel}>
-            Конец
-            <input
-              type="date"
-              className={styles.dateInput}
+          </div>
+          <div className={styles.dateField}>
+            <span className={styles.dateLabel}>Конец</span>
+            <DatePicker
               value={newPromo.endDate}
-              onChange={(e) => setNewPromo((p) => ({ ...p, endDate: e.target.value }))}
+              min={minEndDate(newPromo.startDate)}
+              onChange={(endDate) => setNewPromo((p) => ({ ...p, endDate }))}
+              placeholder="Выберите дату"
+              popupAlign="end"
             />
-          </label>
+          </div>
         </div>
         <button type="submit" className={styles.addBtn} disabled={adding}>
           {adding ? 'Добавление...' : '+ Добавить'}
         </button>
-      </form>
+      </ValidatedForm>
 
       <ConfirmDialog
         open={confirmDeleteId != null}

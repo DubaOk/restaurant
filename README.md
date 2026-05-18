@@ -45,26 +45,33 @@ Course_project/
 └── docker-compose.yml
 ```
 
-## Быстрый запуск через Docker
+## Быстрый запуск через Docker (HTTPS)
 
-**Требования:** Docker Desktop, Docker Compose v2.
+**Требования:** Docker Desktop + Docker Compose v2.
 
-```bash
-# Клонировать / перейти в папку проекта
-cd Course_project
+Архитектура:
 
-# Скопировать переменные окружения
-copy backend\.env.example backend\.env
-
-# Запустить все сервисы
-docker compose up --build -d
-
-# Применить миграции и засеять БД
-docker compose exec backend npx prisma migrate deploy
-docker compose exec backend npm run prisma:seed
+```
+Браузер ──HTTPS:443──► proxy (Nginx) ──HTTP──► frontend:80  (SPA)
+                              └────HTTP──► backend:5000 (REST API)
+                              └──────────► postgres:5432
 ```
 
-Приложение доступно по адресу: **http://localhost:8080**
+```powershell
+cd Course_project
+docker compose up -d --build
+```
+
+Или: `.\docker-up.ps1`
+
+Приложение: **https://localhost** (браузер предупредит о самоподписанном сертифике — это нормально для разработки).  
+HTTP **http://localhost** перенаправляется на HTTPS.
+
+Автоматически: БД, схема, TLS, админ `admin@restaurants.by` / `admin123`. Опционально — `.env` (см. `.env.docker.example`).  
+Полная очистка БД: `docker compose exec backend npm run db:reset`
+
+Остановка: `docker compose down`  
+Только БД для локальной разработки: `docker compose -f docker-compose.dev.yml up -d`
 
 ## Запуск для разработки (dev mode)
 
@@ -103,13 +110,13 @@ Backend API: http://localhost:5000/api
 docker compose -f docker-compose.dev.yml down
 ```
 
-## Тестовые аккаунты (после seed)
+## Учётная запись администратора (Docker / seed)
 
 | Роль | Email | Пароль |
 |------|-------|--------|
 | Admin | admin@restaurants.by | admin123 |
-| Owner | owner@restaurants.by | owner123 |
-| Client | client@restaurants.by | client123 |
+
+Пароль и email задаются в `.env.docker` (`ADMIN_*`) или `backend/.env`.
 
 ## REST API — основные эндпоинты
 

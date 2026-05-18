@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { reservationsApi } from '../../api/reservations.api';
 import Navbar from '../../components/Navbar/Navbar';
 import EditBookingModal from '../../components/EditBookingModal/EditBookingModal';
+import { reservationTableLabel } from '../../utils/reservationTableLabel';
 import styles from './ReservationsPage.module.css';
 
 const STATUS_LABELS = {
@@ -114,7 +115,9 @@ const ReservationsPage = () => {
                       </span>
                       <div className={styles.meta}>
                         <span>Гостей: {r.guestsCount}</span>
-                        {r.table && <span>· Стол №{r.table.number}</span>}
+                        {reservationTableLabel(r) && (
+                          <span>· {reservationTableLabel(r)}</span>
+                        )}
                       </div>
                       {r.comment && <span className={styles.comment}>{r.comment}</span>}
                     </div>

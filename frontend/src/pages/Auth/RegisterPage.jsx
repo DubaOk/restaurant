@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authApi } from '../../api/auth.api';
+import ValidatedForm from '../../components/ValidatedForm/ValidatedForm';
 import styles from './Auth.module.css';
 
 const RegisterPage = () => {
@@ -19,6 +20,7 @@ const RegisterPage = () => {
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -44,7 +46,7 @@ const RegisterPage = () => {
 
         {error && <p className={styles.error}>{error}</p>}
 
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field}>
             <label htmlFor="name">Имя</label>
             <input
@@ -96,7 +98,7 @@ const RegisterPage = () => {
           <button type="submit" className={styles.btn} disabled={loading}>
             {loading ? 'Регистрация...' : 'Зарегистрироваться'}
           </button>
-        </form>
+        </ValidatedForm>
 
         <p className={styles.link}>
           Уже есть аккаунт? <Link to="/login">Войти</Link>

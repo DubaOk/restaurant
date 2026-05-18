@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { menuApi } from '../../api/menu.api';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
+import ValidatedForm from '../ValidatedForm/ValidatedForm';
+import CustomSelect from '../CustomSelect/CustomSelect';
 import styles from './OwnerMenuManager.module.css';
 
 const PRESET_CATEGORIES = ['Закуски', 'Салаты', 'Горячее', 'Супы', 'Гарниры', 'Десерты', 'Напитки'];
 const CUSTOM_CATEGORY = '__custom__';
+
+const MENU_CATEGORY_OPTIONS = [
+  ...PRESET_CATEGORIES.map((c) => ({ value: c, label: c })),
+  { value: CUSTOM_CATEGORY, label: 'Своя категория' },
+];
 
 const EMPTY_ITEM = {
   name: '',
@@ -23,48 +30,6 @@ const resolveCategoryFormState = (category) => {
     return { categoryChoice: category, customCategory: '' };
   }
   return { categoryChoice: CUSTOM_CATEGORY, customCategory: category || '' };
-};
-
-const CategoryDropdown = ({ value, onChange }) => {
-  const [open, setOpen] = useState(false);
-  const options = [...PRESET_CATEGORIES, CUSTOM_CATEGORY];
-  const label = value === CUSTOM_CATEGORY ? 'Своя категория' : value;
-
-  return (
-    <div className={styles.selectWrap}>
-      <button
-        type="button"
-        className={styles.selectButton}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span>{label}</span>
-        <span className={`${styles.selectChevron} ${open ? styles.selectChevronOpen : ''}`}>▾</span>
-      </button>
-      {open && (
-        <div className={styles.selectMenu} role="listbox">
-          {options.map((option) => {
-            const optionLabel = option === CUSTOM_CATEGORY ? 'Своя категория' : option;
-            const active = value === option;
-            return (
-              <button
-                type="button"
-                key={option}
-                className={`${styles.selectOption} ${active ? styles.selectOptionActive : ''}`}
-                onClick={() => {
-                  onChange(option);
-                  setOpen(false);
-                }}
-              >
-                {optionLabel}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 };
 
 const OwnerMenuManager = ({ restaurantId }) => {
@@ -196,9 +161,13 @@ const OwnerMenuManager = ({ restaurantId }) => {
                         value={editForm.name}
                         onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
                       />
-                      <CategoryDropdown
+                      <CustomSelect
+                        className={styles.categorySelect}
                         value={editForm.categoryChoice || PRESET_CATEGORIES[0]}
-                        onChange={(value) => setEditForm((p) => ({ ...p, categoryChoice: value }))}
+                        onChange={(categoryChoice) => setEditForm((p) => ({ ...p, categoryChoice }))}
+                        options={MENU_CATEGORY_OPTIONS}
+                        placeholder="Категория"
+                        aria-label="Категория блюда"
                       />
                       <input
                         className={styles.inputSmall}
@@ -308,7 +277,7 @@ const OwnerMenuManager = ({ restaurantId }) => {
 
       {items.length === 0 && <p className={styles.empty}>Меню пока пустое</p>}
 
-      <form onSubmit={handleAdd} className={styles.addForm}>
+      <ValidatedForm onSubmit={handleAdd} className={styles.addForm}>
         <h4 className={styles.addTitle}>Добавить позицию</h4>
         <div className={styles.addRow}>
           <input
@@ -318,9 +287,13 @@ const OwnerMenuManager = ({ restaurantId }) => {
             onChange={(e) => setNewItem((p) => ({ ...p, name: e.target.value }))}
             required
           />
-          <CategoryDropdown
+          <CustomSelect
+            className={styles.categorySelect}
             value={newItem.categoryChoice}
-            onChange={(value) => setNewItem((p) => ({ ...p, categoryChoice: value }))}
+            onChange={(categoryChoice) => setNewItem((p) => ({ ...p, categoryChoice }))}
+            options={MENU_CATEGORY_OPTIONS}
+            placeholder="Категория"
+            aria-label="Категория блюда"
           />
           <input
             className={styles.inputSmall}
@@ -370,7 +343,7 @@ const OwnerMenuManager = ({ restaurantId }) => {
         <button type="submit" className={styles.addBtn} disabled={adding}>
           {adding ? 'Добавление...' : '+ Добавить'}
         </button>
-      </form>
+      </ValidatedForm>
 
       <ConfirmDialog
         open={confirmDeleteId != null}

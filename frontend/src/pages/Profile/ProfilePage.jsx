@@ -6,7 +6,12 @@ import { favoritesApi } from '../../api/favorites.api';
 import { reservationsApi } from '../../api/reservations.api';
 import { restaurantsApi } from '../../api/restaurants.api';
 import Navbar from '../../components/Navbar/Navbar';
+import ValidatedForm from '../../components/ValidatedForm/ValidatedForm';
+import { useValidationTooltip } from '../../hooks/useValidationTooltip';
 import { formatUserRole } from '../../utils/formatUserRole';
+import { reservationTableLabel } from '../../utils/reservationTableLabel';
+import { isValidBelarusPhone, belarusPhoneValidationMessage } from '../../utils/phoneValidation';
+import { markFieldInvalid } from '../../utils/fieldValidation';
 import styles from './ProfilePage.module.css';
 
 const RES_STATUS_LABELS = {
@@ -20,6 +25,8 @@ const ProfilePage = () => {
   const { user, updateUser } = useAuth();
 
   const [form, setForm] = useState({ name: user?.name || '', phone: user?.phone || '' });
+  const phoneInputRef = useRef(null);
+  const { showMessage, dismissMessage, ValidationTooltipPortal } = useValidationTooltip();
   const [favorites, setFavorites] = useState([]);
   const [reservationsPreview, setReservationsPreview] = useState([]);
   const [reservationsLoading, setReservationsLoading] = useState(true);
@@ -81,12 +88,33 @@ const ProfilePage = () => {
       .finally(() => setReservationsLoading(false));
   }, [user]);
 
+  useEffect(() => {
+    setForm({ name: user?.name || '', phone: user?.phone || '' });
+  }, [user?.name, user?.phone]);
+
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === 'phone' && phoneInputRef.current) {
+      markFieldInvalid(phoneInputRef.current, false);
+      if (isValidBelarusPhone(value)) dismissMessage();
+    }
+  };
+
+  const validatePhoneField = () => {
+    const msg = belarusPhoneValidationMessage(form.phone);
+    if (!msg) {
+      markFieldInvalid(phoneInputRef.current, false);
+      return true;
+    }
+    markFieldInvalid(phoneInputRef.current, true);
+    showMessage(phoneInputRef.current, msg);
+    return false;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validatePhoneField()) return;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -129,6 +157,24 @@ const ProfilePage = () => {
     ? user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
     : '?';
 
+  const renderPhoneField = (label = 'Телефон') => (
+    <div className={styles.field}>
+      <label htmlFor="profile-phone">{label}</label>
+      <input
+        ref={phoneInputRef}
+        id="profile-phone"
+        name="phone"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        data-validate-phone=""
+        value={form.phone}
+        onChange={handleChange}
+        placeholder="+375 29 123-45-67"
+      />
+    </div>
+  );
+
   const avatarBlock = (
     <div className={styles.avatarBlock}>
       <div
@@ -169,23 +215,25 @@ const ProfilePage = () => {
 
           {user?.role === 'OWNER' ? (
             <div className={styles.ownerGrid}>
-              <section className={styles.card}>
+              <section className={`${styles.card} ${styles.ownerCard} ${styles.ownerCabinet}`}>
                 <h2>Кабинет ресторатора</h2>
-                <p className={styles.lead}>
-                  Управляйте карточками заведений, столами в зале, меню, акциями и гостевыми бронированиями в одном
-                  разделе.
-                </p>
-                <p className={styles.metaLine}>
-                  Заведений в гиде:{' '}
-                  <strong>{establishmentCount === null ? '…' : establishmentCount}</strong>
-                </p>
+                <div className={styles.ownerCardBody}>
+                  <p className={styles.lead}>
+                    Управляйте карточками заведений, столами в зале, меню, акциями и гостевыми бронированиями в одном
+                    разделе.
+                  </p>
+                  <p className={styles.metaLine}>
+                    Заведений в гиде:{' '}
+                    <strong>{establishmentCount === null ? '…' : establishmentCount}</strong>
+                  </p>
+                </div>
                 <Link to="/cabinet/restaurateur" className={styles.cabinetLink}>
                   Перейти в кабинет ресторатора
                 </Link>
               </section>
 
-              <aside className={`${styles.card} ${styles.ownerInsight}`}>
-                <h2>Ваша сеть в Бурмалда</h2>
+              <aside className={`${styles.card} ${styles.ownerCard} ${styles.ownerInsight}`}>
+                <h2>Ваши заведения</h2>
                 <dl className={styles.ownerStats}>
                   <div>
                     <dt>Заведений</dt>
@@ -202,19 +250,19 @@ const ProfilePage = () => {
                   <li>Обновите доступность столов под бронь</li>
                   <li>Загляните в новые заявки гостей</li>
                 </ul>
-                <p className={styles.ownerQuote}>
+                <p className={`${styles.ownerQuote} ${styles.ownerCardFooter}`}>
                   «Гость запоминает сервис так же, как вкус блюда» — держите карточки и зал в актуальном состоянии.
                 </p>
               </aside>
 
-              <section className={styles.card}>
+              <section className={`${styles.card} ${styles.ownerCard} ${styles.ownerAccount}`}>
                 <h2>Контакты и учётная запись</h2>
                 {avatarBlock}
 
                 {success && <p className={styles.success}>{success}</p>}
                 {error && <p className={styles.error}>{error}</p>}
 
-                <form onSubmit={handleSubmit} className={styles.form}>
+                <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
                   <div className={styles.field}>
                     <label>Имя или публичное имя</label>
                     <input
@@ -225,10 +273,7 @@ const ProfilePage = () => {
                       placeholder="Например, Ресторатор Иванов"
                     />
                   </div>
-                  <div className={styles.field}>
-                    <label>Телефон для связи с гостями</label>
-                    <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
-                  </div>
+                  {renderPhoneField('Телефон для связи с гостями')}
                   <div className={styles.field}>
                     <label>Email</label>
                     <input value={user?.email || ''} disabled />
@@ -240,10 +285,10 @@ const ProfilePage = () => {
                   <button type="submit" className={styles.btn} disabled={saving}>
                     {saving ? 'Сохранение...' : 'Сохранить'}
                   </button>
-                </form>
+                </ValidatedForm>
               </section>
 
-              <section className={`${styles.card} ${styles.ownerPlacesCard}`}>
+              <section className={`${styles.card} ${styles.ownerCard} ${styles.ownerPlacesCard}`}>
                 <h2>Заведения в гиде</h2>
                 {ownerPlaces.length === 0 ? (
                   <p className={styles.empty}>Добавьте первое заведение в кабинете ресторатора — оно появится здесь.</p>
@@ -277,22 +322,19 @@ const ProfilePage = () => {
           ) : user?.role === 'CLIENT' ? (
             <div className={styles.clientLayout}>
               <div className={styles.clientMain}>
-                <section className={styles.card}>
+                <section className={`${styles.card} ${styles.clientAccountCard}`}>
                   <h2>Контакты и учётная запись</h2>
                   {avatarBlock}
 
                   {success && <p className={styles.success}>{success}</p>}
                   {error && <p className={styles.error}>{error}</p>}
 
-                  <form onSubmit={handleSubmit} className={styles.form}>
+                  <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
                     <div className={styles.field}>
                       <label>Имя</label>
                       <input name="name" value={form.name} onChange={handleChange} required />
                     </div>
-                    <div className={styles.field}>
-                      <label>Телефон</label>
-                      <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
-                    </div>
+                    {renderPhoneField()}
                     <div className={styles.field}>
                       <label>Email</label>
                       <input value={user?.email || ''} disabled />
@@ -304,32 +346,34 @@ const ProfilePage = () => {
                     <button type="submit" className={styles.btn} disabled={saving}>
                       {saving ? 'Сохранение...' : 'Сохранить'}
                     </button>
-                  </form>
+                  </ValidatedForm>
                 </section>
               </div>
 
               <aside className={styles.clientAside}>
-                <section className={`${styles.card} ${styles.clientHighlightCard}`}>
+                <section className={`${styles.card} ${styles.clientHighlightCard} ${styles.clientQuickCard}`}>
                   <h2>Быстрые действия</h2>
-                  <div className={styles.quickGrid}>
-                    <Link to="/reservations" className={styles.quickTile}>
-                      <span className={styles.quickIcon}>◷</span>
+                  <div className={styles.quickGrid} spellCheck={false} translate="no">
+                    <Link to="/reservations" className={styles.quickTile} spellCheck={false} translate="no">
+                      <span className={styles.quickIcon} aria-hidden>◷</span>
                       <span className={styles.quickTitle}>Мои брони</span>
                       <span className={styles.quickDesc}>Статусы и изменения</span>
                     </Link>
-                    <Link to="/restaurants" className={styles.quickTile}>
-                      <span className={styles.quickIcon}>◎</span>
+                    <Link to="/restaurants" className={styles.quickTile} spellCheck={false} translate="no">
+                      <span className={styles.quickIcon} aria-hidden>◎</span>
                       <span className={styles.quickTitle}>Заведения</span>
                       <span className={styles.quickDesc}>Подбор и бронь</span>
                     </Link>
                   </div>
                 </section>
 
-                <section className={styles.card}>
+                <div className={styles.clientDualGrid}>
+                <section className={`${styles.card} ${styles.clientPanelCard}`}>
                   <div className={styles.cardHeadRow}>
                     <h2>Ближайшие бронирования</h2>
                     <Link to="/reservations" className={styles.cardHeadLink}>Все →</Link>
                   </div>
+                  <div className={styles.clientPanelScroll}>
                   {reservationsLoading ? (
                     <p className={styles.mutedLine}>Загрузка…</p>
                   ) : reservationsPreview.length === 0 ? (
@@ -352,7 +396,7 @@ const ProfilePage = () => {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}
-                              {r.table ? ` · стол №${r.table.number}` : ''}
+                              {reservationTableLabel(r) ? ` · ${reservationTableLabel(r)}` : ''}
                               {r.guestsCount ? ` · ${r.guestsCount} гост.` : ''}
                             </span>
                           </div>
@@ -363,57 +407,65 @@ const ProfilePage = () => {
                       ))}
                     </ul>
                   )}
+                  </div>
                 </section>
 
-                <section className={styles.card}>
+                <section className={`${styles.card} ${styles.clientPanelCard}`}>
                   <div className={styles.cardHeadRow}>
-                    <h2>Избранные заведения</h2>
+                    <h2>Избранное</h2>
                     {favorites.length > 0 && (
                       <Link to="/restaurants" className={styles.cardHeadLink}>Каталог →</Link>
                     )}
                   </div>
+                  <div className={styles.clientPanelScroll}>
                   {favorites.length === 0 ? (
                     <div className={styles.emptyBlock}>
                       <p className={styles.empty}>В избранном пока ничего нет</p>
                       <Link to="/restaurants" className={styles.emptyCta}>Добавить из каталога</Link>
                     </div>
                   ) : (
-                    <ul className={styles.favList}>
-                      {favorites.map((fav) => (
-                        <li key={fav.id} className={styles.favItem}>
-                          {fav.restaurant?.imageUrl && (
-                            <img
-                              src={fav.restaurant.imageUrl}
-                              alt={fav.restaurant.name}
-                              className={styles.favImg}
-                            />
-                          )}
-                          <div className={styles.favInfo}>
-                            <Link to={`/restaurants/${fav.restaurantId}`} className={styles.favName}>
-                              {fav.restaurant?.name}
+                    <ul className={styles.favGrid}>
+                      {favorites.map((fav) => {
+                        const rest = fav.restaurant;
+                        const img = rest?.coverImage || rest?.imageUrl;
+                        return (
+                          <li key={fav.id} className={styles.favCard}>
+                            <Link to={`/restaurants/${fav.restaurantId}`} className={styles.favCardLink}>
+                              <div
+                                className={styles.favCardMedia}
+                                style={img ? { backgroundImage: `url(${img})` } : undefined}
+                              >
+                                {!img && <span className={styles.favCardPlaceholder}>◎</span>}
+                                {rest?.avgRating != null && (
+                                  <span className={styles.favCardRating}>
+                                    ★ {Number(rest.avgRating).toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className={styles.favCardBody}>
+                                <span className={styles.favCardName}>{rest?.name}</span>
+                                <span className={styles.favCardMeta}>
+                                  {[rest?.cuisine, rest?.city].filter(Boolean).join(' · ') || 'Ресторан'}
+                                </span>
+                              </div>
                             </Link>
-                            <span className={styles.favMeta}>
-                              {fav.restaurant?.cuisine}
-                              {fav.restaurant?.city ? ` · ${fav.restaurant.city}` : ''}
-                              {fav.restaurant?.address ? ` · ${fav.restaurant.address}` : ''}
-                            </span>
-                            {fav.restaurant?.avgRating && (
-                              <span className={styles.favRating}>★ {Number(fav.restaurant.avgRating).toFixed(1)}</span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.favRemove}
-                            onClick={() => handleRemoveFavorite(fav.restaurantId)}
-                            aria-label="Убрать из избранного"
-                          >
-                            ♥
-                          </button>
-                        </li>
-                      ))}
+                            <button
+                              type="button"
+                              className={styles.favCardRemove}
+                              onClick={() => handleRemoveFavorite(fav.restaurantId)}
+                              aria-label="Убрать из избранного"
+                              title="Убрать из избранного"
+                            >
+                              ×
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
+                  </div>
                 </section>
+                </div>
               </aside>
             </div>
           ) : (
@@ -425,15 +477,12 @@ const ProfilePage = () => {
                 {success && <p className={styles.success}>{success}</p>}
                 {error && <p className={styles.error}>{error}</p>}
 
-                <form onSubmit={handleSubmit} className={styles.form}>
+                <ValidatedForm onSubmit={handleSubmit} className={styles.form}>
                   <div className={styles.field}>
                     <label>Имя</label>
                     <input name="name" value={form.name} onChange={handleChange} required />
                   </div>
-                  <div className={styles.field}>
-                    <label>Телефон</label>
-                    <input name="phone" value={form.phone} onChange={handleChange} placeholder="+375 XX XXX-XX-XX" />
-                  </div>
+                  {renderPhoneField()}
                   <div className={styles.field}>
                     <label>Email</label>
                     <input value={user?.email || ''} disabled />
@@ -445,12 +494,13 @@ const ProfilePage = () => {
                   <button type="submit" className={styles.btn} disabled={saving}>
                     {saving ? 'Сохранение...' : 'Сохранить'}
                   </button>
-                </form>
+                </ValidatedForm>
               </section>
             </div>
           )}
         </div>
       </main>
+      <ValidationTooltipPortal />
     </>
   );
 };
